@@ -535,7 +535,12 @@ void xmrig::Miner::execCommand(char command)
 
     case 'd':
     case 'D':
-        d_ptr->printDifficulty();
+        if (d_ptr->controller->config()->pools().isDaemon()) {
+            d_ptr->printDifficulty();
+        }
+        else {
+            LOG_NOTICE(YELLOW_BOLD_S "difficulty info is only available in daemon mode");
+        }
         break;
 
     case 'p':
