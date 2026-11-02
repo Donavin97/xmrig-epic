@@ -42,6 +42,7 @@ public:
         TOWNFORGE,
         YADA,
         SALVIUM,
+        TARI,
         MAX
     };
 

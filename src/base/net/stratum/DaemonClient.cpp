@@ -242,7 +242,7 @@ void xmrig::DaemonClient::setPool(const Pool &pool)
         m_coin = Coin::WOWNERO;
     }
 
-    m_rawTemplate = pool.rawTemplate();
+    m_rawTemplate = pool.rawTemplate() || m_coin == Coin::TARI;
 }
 
 
