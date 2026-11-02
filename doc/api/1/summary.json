@@ -13,6 +13,7 @@
     "algo": "cryptonight",
     "hugepages": true,
     "donate_level": 5,
+    "best_hash_diff": 278199,
     "hashrate": {
         "total": [
             296.24,
