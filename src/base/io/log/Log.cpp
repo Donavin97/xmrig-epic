@@ -90,6 +90,30 @@ public:
             return;
         }
 
+        // Quiet mode: suppress INFO/NOTICE messages unless they are accepted
+        // job notifications or best-hash difficulty output.
+        if (Log::isQuiet() && (level == Log::INFO || level == Log::NOTICE)) {
+            va_list args_copy;
+            va_copy(args_copy, args);
+            const int rc = vsnprintf(nullptr, 0, fmt, args_copy);
+            va_end(args_copy);
+
+            if (rc <= 0) {
+                return;
+            }
+
+            char buf[512];
+            const size_t n = static_cast<size_t>(rc) < sizeof(buf) - 1 ? static_cast<size_t>(rc) : sizeof(buf) - 1;
+            vsnprintf(buf, n + 1, fmt, args);
+            buf[n] = '\0';
+
+            const bool is_accepted = strstr(buf, "accepted") != nullptr;
+            const bool is_best     = strstr(buf, "best hash") != nullptr;
+            if (!is_accepted && !is_best) {
+                return;
+            }
+        }
+
         const uint64_t ts = timestamp(level, size, offset);
         color(level, size);
 
@@ -194,6 +218,7 @@ private:
 
 bool Log::m_background      = false;
 bool Log::m_colors          = true;
+bool Log::m_quiet           = false;
 LogPrivate *Log::d          = nullptr;
 uint32_t Log::m_verbose     = 0;
 

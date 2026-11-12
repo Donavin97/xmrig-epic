@@ -58,14 +58,17 @@ public:
     static inline bool isBackground()                   { return m_background; }
     static inline bool isColors()                       { return m_colors; }
     static inline bool isVerbose()                      { return m_verbose > 0; }
+    static inline bool isQuiet()                        { return m_quiet; }
     static inline uint32_t verbose()                    { return m_verbose; }
     static inline void setBackground(bool background)   { m_background = background; }
     static inline void setColors(bool colors)           { m_colors = colors; }
     static inline void setVerbose(uint32_t verbose)     { m_verbose = verbose; }
+    static inline void setQuiet(bool quiet)             { m_quiet = quiet; }
 
 private:
     static bool m_background;
     static bool m_colors;
+    static bool m_quiet;
     static LogPrivate *d;
     static uint32_t m_verbose;
 };

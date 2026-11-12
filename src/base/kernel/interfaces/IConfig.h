@@ -59,6 +59,7 @@ public:
         UserpassKey          = 'O',
         ProxyKey             = 'x',
         VerboseKey           = 1100,
+        QuietKey             = 1101,
         TlsKey               = 1013,
         FingerprintKey       = 1014,
         ProxyDonateKey       = 1017,

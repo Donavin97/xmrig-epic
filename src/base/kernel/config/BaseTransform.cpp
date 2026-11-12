@@ -265,6 +265,7 @@ void xmrig::BaseTransform::transform(rapidjson::Document &doc, int key, const ch
     case IConfig::DaemonKey:      /* --daemon */
     case IConfig::SubmitToOriginKey: /* --submit-to-origin */
     case IConfig::VerboseKey:     /* --verbose */
+    case IConfig::QuietKey:       /* --quiet */
     case IConfig::DnsIPv4Key:     /* --ipv4 */
     case IConfig::DnsIPv6Key:     /* --ipv6 */
         return transformBoolean(doc, key, true);

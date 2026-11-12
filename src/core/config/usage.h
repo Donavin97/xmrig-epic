@@ -59,6 +59,7 @@ static inline const std::string &usage()
     u += "  -4, --ipv4                    resolve names to IPv4 addresses\n";
     u += "  -6, --ipv6                    resolve names to IPv6 addresses\n";
     u += "      --dns-ttl=N               N seconds (default: 30) TTL for internal DNS cache\n";
+    u += "      --quiet                   suppress INFO/NOTICE log output except accepted shares and best-hash difficulty notifications\n";
 
 #   ifdef XMRIG_FEATURE_HTTP
     u += "      --daemon                  use daemon RPC instead of pool for solo mining\n";
