@@ -26,6 +26,80 @@ The preferred way to configure the miner is the [JSON config file](https://xmrig
 * **[Wizard](https://xmrig.com/wizard)** helps you create initial configuration for the miner.
 * **[Workers](http://workers.xmrig.info)** helps manage your miners via HTTP API.
 
+## Mining Epic Cash
+
+This fork mines the Epic Cash `randomx` algorithm (`rx/epic`) on CPU. Note that Epic Cash is
+multi-algo (randomx / progpow / cuckoo): this miner only works during the `randomx` rounds and
+idles when the pool assigns progpow or cuckoo rounds.
+
+### Pool mining (epicmine.io or any compatible stratum)
+
+```
+xmrig --coin EPIC -o de.epicmine.io:3334 --tls -u MINING_ALIAS.WORKER_NAME -p m=pool
+```
+
+See `scripts/epic_cash_example.cmd`.
+
+### Solo mining to a local epic node
+
+Connect to the stratum server of your own `epic` node (enable it in `~/.epic/main/epic-server.toml`
+with `enable_stratum_server = true`, default address `127.0.0.1:3416`) and keep an epic wallet
+listening so the node can build block templates:
+
+```
+xmrig --coin EPIC -o 127.0.0.1:3416 --daemon
+```
+
+JSON config equivalent:
+
+```json
+{
+  "pools": [
+    {
+      "coin": "EPIC",
+      "url": "127.0.0.1:3416",
+      "daemon": true
+    }
+  ]
+}
+```
+
+See `scripts/epic_cash_solo_example.cmd`.
+
+You can raise the share difficulty above the node's minimum (4000) with
+`daemon-share-diff`. This only moves the local submission threshold — the node
+still accepts any share at or above its minimum, and block-finding is unaffected
+(every hash is always checked against the full network block difficulty):
+
+```
+xmrig --coin EPIC -o 127.0.0.1:3416 --daemon --daemon-share-diff=100000
+```
+
+Or mine directly at the network block difficulty with `daemon-share-diff:
+"block"`. In this mode the miner submits nothing but actual block solutions
+(pure solo mining — expect silence, potentially for days, until you find a
+block; the hashrate display still works):
+
+```
+xmrig --coin EPIC -o 127.0.0.1:3416 --daemon --daemon-share-diff=block
+```
+
+```json
+{
+  "pools": [
+    {
+      "coin": "EPIC",
+      "url": "127.0.0.1:3416",
+      "daemon": true,
+      "daemon-share-diff": "block"
+    }
+  ]
+}
+```
+
+With share diff raised, the `results` table (`results` command) reports
+meaningful difficulties/effort instead of thousands of diff-1 style shares.
+
 ## Donations
 * Default donation 1% (1 minute in 100 minutes) can be increased via option `donate-level` or disabled in source code.
 * XMR: `48edfHu7V9Z84YzzMa6fUueoELZ9ZRXq9VetWzYGzKt52XU5xvqgzYnDK9URnRoJMk1j8nLwEVsaSWJ4fhdUyZijBGUicoD`

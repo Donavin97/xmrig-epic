@@ -60,6 +60,7 @@ public:
     static const char *kDaemon;
     static const char *kDaemonPollInterval;
     static const char *kDaemonJobTimeout;
+    static const char *kDaemonShareDiff;
     static const char *kEnabled;
     static const char *kFingerprint;
     static const char *kKeepalive;
@@ -81,6 +82,10 @@ public:
     constexpr static uint16_t kDefaultPort         = 3333;
     constexpr static uint64_t kDefaultPollInterval = 1000;
     constexpr static uint64_t kDefaultJobTimeout   = 15000;
+    constexpr static uint64_t kDefaultShareDiff    = 0;
+    // "block" mode: submit only solutions that meet the full network block
+    // difficulty (pure solo mining, no share reporting).
+    constexpr static uint64_t kShareDiffBlock      = 1;
 
     Pool() = default;
     Pool(const char *host, uint16_t port, const char *user, const char *password, const char* spendSecretKey, int keepAlive, bool nicehash, bool tls, Mode mode);
@@ -115,6 +120,7 @@ public:
     inline int zmq_port() const                         { return m_zmqPort; }
     inline uint64_t pollInterval() const                { return m_pollInterval; }
     inline uint64_t jobTimeout() const                  { return m_jobTimeout; }
+    inline uint64_t shareDiff() const                   { return m_shareDiff; }
     inline void setAlgo(const Algorithm &algorithm)     { m_algorithm = algorithm; }
     inline void setUrl(const char *url)                 { m_url = Url(url); }
     inline void setPassword(const String &password)     { m_password = password; }
@@ -163,6 +169,7 @@ private:
     String m_spendSecretKey;
     uint64_t m_pollInterval         = kDefaultPollInterval;
     uint64_t m_jobTimeout           = kDefaultJobTimeout;
+    uint64_t m_shareDiff            = kDefaultShareDiff;
     Url m_daemon;
     Url m_url;
     int m_zmqPort                   = -1;

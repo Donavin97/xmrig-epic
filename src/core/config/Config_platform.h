@@ -48,6 +48,7 @@ static const option options[] = {
     { "daemon",                0, nullptr, IConfig::DaemonKey             },
     { "daemon-poll-interval",  1, nullptr, IConfig::DaemonPollKey         },
     { "daemon-job-timeout",    1, nullptr, IConfig::DaemonJobTimeoutKey   },
+    { "daemon-share-diff",     1, nullptr, IConfig::DaemonShareDiffKey    },
     { "self-select",           1, nullptr, IConfig::SelfSelectKey         },
     { "submit-to-origin",      0, nullptr, IConfig::SubmitToOriginKey     },
     { "daemon-zmq-port",       1, nullptr, IConfig::DaemonZMQPortKey      },
