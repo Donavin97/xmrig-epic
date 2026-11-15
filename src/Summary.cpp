@@ -193,11 +193,12 @@ static void print_commands(Config *)
                                                                  MAGENTA_BG_BOLD("r") WHITE_BOLD("esume, ")
                                                                  WHITE_BOLD("re") MAGENTA_BG(WHITE_BOLD_S "s") WHITE_BOLD("ults, ")
                                                                  MAGENTA_BG_BOLD("c") WHITE_BOLD("onnection, ")
-                                                                 MAGENTA_BG_BOLD("q") WHITE_BOLD("uiet")
+                                                                 MAGENTA_BG_BOLD("q") WHITE_BOLD("uiet, ")
+                                                                 MAGENTA_BG_BOLD("d") WHITE_BOLD("ifficulty")
                    );
     }
     else {
-        Log::print(" * COMMANDS     'h' hashrate, 'p' pause, 'r' resume, 's' results, 'c' connection, 'q' quiet");
+        Log::print(" * COMMANDS     'h' hashrate, 'p' pause, 'r' resume, 's' results, 'c' connection, 'q' quiet, 'd' difficulty");
     }
 }
 

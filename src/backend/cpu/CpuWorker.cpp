@@ -278,7 +278,7 @@ void xmrig::CpuWorker<N>::start()
                 break;
             }
 
-            uint64_t current_job_cycle;
+            uint64_t current_job_cycle = 0;
             uint256_t starttarget = 0xFFFFFFFFFFFFFFFFULL / m_job.currentJob().target();
             uint256_t target = uint256_max / starttarget;
             
@@ -427,6 +427,13 @@ void xmrig::CpuWorker<N>::start()
                                         (uint256_t)m_hash[29] << 8 * 2 |
                                         (uint256_t)m_hash[30] << 8 * 1 |
                                         (uint256_t)m_hash[31] << 8 * 0;
+
+                        // Track best hash for difficulty stats (top 64 bits of big-endian hash in m_hash)
+                        uint64_t top64 = 0;
+                        for (int b = 0; b < 8; ++b) {
+                            top64 = (top64 << 8) | m_hash[b];
+                        }
+                        Nonce::submitHashValue(top64);
 
                         if (foo <= target) {
                             uint64_t enonce = (uint64_t)wowJob[282 - 1] << 8 * 0 |
