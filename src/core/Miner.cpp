@@ -36,7 +36,6 @@
 #include "base/tools/Timer.h"
 #include "core/config/Config.h"
 #include "core/Controller.h"
-#include "crypto/common/Nonce.h"
 #include "version.h"
 
 
@@ -377,42 +376,6 @@ public:
                    "job target",
                    NetworkState::humanDiff(job.target()).c_str(),
                    static_cast<unsigned long long>(job.target()));
-
-        // Best hash (job) - uses same epicActualDiff as submit
-        const uint64_t bestJob = Nonce::bestHashValue();
-        if (bestJob) {
-            Log::print(GREEN_BOLD(" * ") WHITE_BOLD("%-19s") CYAN_BOLD("%s") BLACK_BOLD(" (%llu)"),
-                       "best hash (job)",
-                       NetworkState::humanDiff(Job::toDiff(bestJob)).c_str(),
-                       static_cast<unsigned long long>(Job::toDiff(bestJob)));
-        }
-
-        // Best hash (session)
-        const uint64_t bestSession = Nonce::sessionBestHashValue();
-        if (bestSession) {
-            Log::print(GREEN_BOLD(" * ") WHITE_BOLD("%-19s") CYAN_BOLD("%s") BLACK_BOLD(" (%llu)"),
-                       "best hash (session)",
-                       NetworkState::humanDiff(Job::toDiff(bestSession)).c_str(),
-                       static_cast<unsigned long long>(Job::toDiff(bestSession)));
-        }
-
-        // Session top-10 record list (same as 's' key in pool mode)
-        uint64_t records[kBestHashListSize];
-        size_t count = 0;
-        Nonce::readBestHashList(records, count);
-
-        if (count) {
-            Log::print(MAGENTA_BOLD_S " - TOP %zu", count);
-            Log::print(WHITE_BOLD_S "  # | DIFFICULTY | EFFORT %% |");
-
-            for (size_t i = 0; i < count; ++i) {
-                const uint64_t diff = Job::toDiff(records[i]);
-                const double effort = 100.0; // simplified - would need total hashes for accurate effort
-                Log::print("%3zu | %10s | %8.2f |", i + 1,
-                           NetworkState::humanDiff(diff).c_str(),
-                           effort);
-            }
-        }
     }
 
 
@@ -534,26 +497,6 @@ void xmrig::Miner::execCommand(char command)
     case 'h':
     case 'H':
         d_ptr->printHashrate(true);
-        break;
-
-    case 'd':
-    case 'D':
-        {
-            bool isDaemon = false;
-            for (const auto &pool : d_ptr->controller->config()->pools().data()) {
-                if (pool.mode() == Pool::MODE_DAEMON) {
-                    isDaemon = true;
-                    break;
-                }
-            }
-
-            if (isDaemon) {
-                d_ptr->printDifficulty();
-            }
-            else {
-                LOG_NOTICE(YELLOW_BOLD_S "difficulty info is only available in daemon mode");
-            }
-        }
         break;
 
     case 'q':
