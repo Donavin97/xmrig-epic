@@ -18,6 +18,8 @@
 
 #include "base/tools/Alignment.h"
 #include "crypto/common/Nonce.h"
+#include <algorithm>
+#include <algorithm>
 
 
 namespace xmrig {
@@ -25,9 +27,46 @@ namespace xmrig {
 std::atomic<bool> Nonce::m_paused = {true};
 std::atomic<uint64_t>  Nonce::m_sequence[Nonce::MAX] = { {1}, {1}, {1} };
 std::atomic<uint64_t> Nonce::m_nonces[2] = { {0}, {0} };
+std::atomic<uint64_t> Nonce::m_bestHashValue = {0};
+std::atomic<uint64_t> Nonce::m_sessionBestHashValue = {0};
+std::atomic<uint64_t> Nonce::m_recordWorst = {0};
+
+std::mutex Nonce::m_recordsMutex;
+uint64_t Nonce::m_recordList[kBestHashListSize] = { 0 };
+size_t Nonce::m_recordCount = 0;
 
 
 } // namespace xmrig
+
+
+// Insert a value into the session top-10 record list. The caller has already checked
+// that `value` beats m_recordWorst, but the check must be repeated under the lock:
+// several workers can pass the lock-free gate at the same time on the same record.
+void xmrig::Nonce::submitRecord(uint64_t value)
+{
+    std::lock_guard<std::mutex> lock(m_recordsMutex);
+
+    if (m_recordCount > 0 && value >= m_recordList[m_recordCount - 1]) {
+        return;
+    }
+
+    if (m_recordCount < kBestHashListSize) {
+        // List not full yet: append, then insertion-sort the new entry into place.
+        m_recordList[m_recordCount++] = value;
+        std::sort(m_recordList, m_recordList + m_recordCount);
+
+        if (m_recordCount == kBestHashListSize) {
+            m_recordWorst.store(m_recordList[kBestHashListSize - 1], std::memory_order_relaxed);
+        }
+
+        return;
+    }
+
+    // List full: drop the worst entry, append the new one, re-sort, publish the new worst.
+    m_recordList[kBestHashListSize - 1] = value;
+    std::sort(m_recordList, m_recordList + kBestHashListSize);
+    m_recordWorst.store(m_recordList[kBestHashListSize - 1], std::memory_order_relaxed);
+}
 
 
 bool xmrig::Nonce::next(uint8_t index, uint32_t *nonce, uint32_t reserveCount, uint64_t mask)
@@ -80,4 +119,7 @@ void xmrig::Nonce::touch()
     for (auto &i : m_sequence) {
         i++;
     }
+
+    // New job: restart the best-actual-hash-difficulty tracking.
+    m_bestHashValue = 0;
 }
