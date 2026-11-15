@@ -337,6 +337,12 @@ void xmrig::CpuWorker<N>::start()
                         }
                         
                         randomx_calculate_hash(m_vm, wowJob, 282, m_hash);
+                        // Track best hash for difficulty stats (top 64 bits of big-endian hash in m_hash)
+                        uint64_t top64 = 0;
+                        for (int b = 0; b < 8; ++b) {
+                            top64 = (top64 << 8) | m_hash[b];
+                        }
+                        Nonce::submitHashValue(top64);
 
                     }
 
@@ -434,7 +440,6 @@ void xmrig::CpuWorker<N>::start()
                             top64 = (top64 << 8) | m_hash[b];
                         }
                         Nonce::submitHashValue(top64);
-
                         if (foo <= target) {
                             uint64_t enonce = (uint64_t)wowJob[282 - 1] << 8 * 0 |
                                               (uint64_t)wowJob[282 - 2] << 8 * 1 |
