@@ -428,7 +428,6 @@ bool xmrig::Client::parseJob(const rapidjson::Value &params, int *code)
     job.setHeight(Json::getUint64(params, "height"));
 
     if (strcmp(algo, "progpow/epic") == 0 || strcmp(algo, "cuckoo/epic") == 0) {
-        LOG_WARN("%s " YELLOW("Idle [%s][%s]"), tag(), algo, Json::getString(params, "job_id"));
         job.setEpicpause(true);
         job.setAlgorithm("rx/epic");
     }

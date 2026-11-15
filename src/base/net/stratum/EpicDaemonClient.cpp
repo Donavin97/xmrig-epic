@@ -548,8 +548,9 @@ bool xmrig::EpicDaemonClient::parseJob(const rapidjson::Value &params, int *code
                  static_cast<unsigned long long>(diff));
     }
     else {
-        LOG_WARN("%s " YELLOW("Idle [%s][height %llu, job_id %llu]"), tag(), algo,
-                 static_cast<unsigned long long>(height), static_cast<unsigned long long>(jobId));
+        // Non-randomx algorithms (progpow, cuckoo) - silently pause
+        m_listener->onJobReceived(this, m_job, params);
+        return true;
     }
 
     m_listener->onJobReceived(this, m_job, params);
