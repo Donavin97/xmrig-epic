@@ -25,6 +25,8 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <ctime>
 #include <mutex>
@@ -106,7 +108,19 @@ public:
                 buf[sizeof(buf) - 1] = '\0';
 
                 const bool is_accepted = strstr(buf, "accepted") != nullptr;
-                const bool is_best     = strstr(buf, "best hash") != nullptr;
+
+                // Best-hash announcements pass through in quiet mode only
+                // when the difficulty is noteworthy (>= 10,000,000).
+                // The raw diff is the number in "(...)" at the end of the
+                // line: "best hash diff this session 12.0M (12000000)".
+                bool is_best = false;
+                if (strstr(buf, "best hash") != nullptr) {
+                    const char *paren = strrchr(buf, '(');
+                    if (paren != nullptr) {
+                        is_best = strtoull(paren + 1, nullptr, 10) >= 10000000ULL;
+                    }
+                }
+
                 if (!is_accepted && !is_best) {
                     return;
                 }
