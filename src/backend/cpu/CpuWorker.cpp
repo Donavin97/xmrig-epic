@@ -266,6 +266,7 @@ void xmrig::CpuWorker<N>::start()
         // between worker threads.
         uint64_t randomNumber = 0;
         uint64_t epicNonceCycle = 0;
+        uint64_t epicPrevNonce = 0;
         {
             std::mt19937_64 rng(
                 static_cast<uint64_t>(Chrono::currentMSecsSinceEpoch()) ^
@@ -323,8 +324,28 @@ void xmrig::CpuWorker<N>::start()
                     // Exact epic share target: the node computes a hash's
                     // difficulty as uint256_max / hash (pow/types.rs
                     // from_proof_hash), so a hash qualifies for `diff` when
-                    // hash <= uint256_max / diff.
+                    // hash <= uint256_max / diff. Split into big-endian 64-bit
+                    // limbs once per round so the per-hash check below needs no
+                    // 256-bit arithmetic.
                     const uint256_t target = uint256_max / job.diff();
+                    const uint128_t targetHi = target.upper();
+                    const uint128_t targetLo = target.lower();
+                    const uint64_t targetLimbs[4] = {
+                        targetHi.upper(), targetHi.lower(), targetLo.upper(), targetLo.lower()
+                    };
+
+                    if (first) {
+                        first = false;
+
+                        // Prime the hashing pipeline with the first nonce.
+                        const uint64_t nonce = randomNumber;
+                        for (int j = 0; j < 8; ++j) {
+                            wowJob[274 + j] = static_cast<uint8_t>(nonce >> (8 * (7 - j)));
+                        }
+                        randomx_calculate_hash_first(m_vm, tempHash, wowJob, 282);
+                        epicPrevNonce = nonce;
+                        epicNonceCycle = 1;
+                    }
 
                     for (size_t i = 0; i < N; ++i) {
                         // The nonce must advance on every hash — otherwise the
@@ -337,28 +358,46 @@ void xmrig::CpuWorker<N>::start()
                             wowJob[274 + j] = static_cast<uint8_t>(nonce >> (8 * (7 - j)));
                         }
 
-                        randomx_calculate_hash(m_vm, wowJob, 282, m_hash);
+                        // Pipelined hashing, same scheme as the rx/0 path:
+                        // outputs the hash of the previous nonce while
+                        // preparing the scratchpad for this one (fused
+                        // finalize+fill, one AES pass over the scratchpad
+                        // instead of two).
+                        randomx_calculate_hash_next(m_vm, tempHash, wowJob, 282, m_hash);
+                        const uint64_t hashed = epicPrevNonce;
+                        epicPrevNonce = nonce;
 
-                        // Track best hash for difficulty stats (top 64 bits of
-                        // the big-endian hash in m_hash; lower is harder).
-                        uint64_t top64 = 0;
-                        for (int b = 0; b < 8; ++b) {
-                            top64 = (top64 << 8) | m_hash[b];
-                        }
-                        Nonce::submitHashValue(top64);
-
-                        // Full 256-bit qualification check, the same integer
-                        // math the node's from_proof_hash uses.
-                        uint256_t hash256 = 0;
+                        // Big-endian 64-bit limbs of the hash.
+                        uint64_t h[4] = { 0, 0, 0, 0 };
                         for (int b = 0; b < 32; ++b) {
-                            hash256 = (hash256 << 8) | m_hash[b];
+                            h[b >> 3] = (h[b >> 3] << 8) | m_hash[b];
                         }
 
-                        if (hash256 <= target) {
+                        // Track best hash for difficulty stats (h[0] is the
+                        // top 64 bits; lower is harder).
+                        Nonce::submitHashValue(h[0]);
+
+                        // Exact qualification, the same integer math the node's
+                        // from_proof_hash uses: hash <= uint256_max / diff.
+                        bool pass;
+                        if (h[0] != targetLimbs[0]) {
+                            pass = h[0] < targetLimbs[0];
+                        }
+                        else if (h[1] != targetLimbs[1]) {
+                            pass = h[1] < targetLimbs[1];
+                        }
+                        else if (h[2] != targetLimbs[2]) {
+                            pass = h[2] < targetLimbs[2];
+                        }
+                        else {
+                            pass = h[3] <= targetLimbs[3];
+                        }
+
+                        if (pass) {
                             // Submit the nonce that was actually hashed: the
                             // node recomputes hash(pre_pow || nonce) and
                             // compares it to the submitted hash.
-                            JobResults::submit(job, nonce, m_hash);
+                            JobResults::submit(job, hashed, m_hash);
                         }
                     }
 
