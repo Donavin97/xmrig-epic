@@ -72,21 +72,20 @@ public:
         // Checked unconditionally: a hash that misses the stale per-job best seen here
         // (e.g. across a job change) can still be a new session best.
         best = m_sessionBestHashValue.load(std::memory_order_relaxed);
-        bool newSessionBest = false;
         while (best == 0 || value < best) {
             if (m_sessionBestHashValue.compare_exchange_weak(best, value, std::memory_order_relaxed)) {
-                newSessionBest = true;
                 break;
             }
         }
 
-        // Session top-10 list: only insert if we actually set a new session best
-        // (avoids multiple threads inserting duplicates for the same improvement).
-        if (newSessionBest) {
-            const uint64_t worst = m_recordWorst.load(std::memory_order_relaxed);
-            if (worst == 0 || value < worst) {
-                submitRecord(value);
-            }
+        // Session top-10 list: every hash is a candidate, not just new session
+        // bests. Insert when the hash beats the worst entry currently in the
+        // list; while the list is not full yet m_recordWorst is 0, so every
+        // hash gets considered. The check is repeated under the lock in
+        // submitRecord().
+        const uint64_t worst = m_recordWorst.load(std::memory_order_relaxed);
+        if (worst == 0 || value < worst) {
+            submitRecord(value);
         }
     }
 
