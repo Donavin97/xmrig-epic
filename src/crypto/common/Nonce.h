@@ -56,6 +56,13 @@ public:
     static inline uint64_t bestHashValue()                              { return m_bestHashValue.load(std::memory_order_relaxed); }
     static inline uint64_t sessionBestHashValue()                       { return m_sessionBestHashValue.load(std::memory_order_relaxed); }
 
+    // Exceptional-hash announcements: a hash at or above 10M difficulty is
+    // queued here by the workers and printed once by the main thread timer,
+    // even when it is not a new session record. Last one wins if several
+    // land between ticks. exchange() returns and clears the pending value.
+    static inline uint64_t takeBigHashValue()                           { return m_pendingBigHash.exchange(0, std::memory_order_relaxed); }
+    static inline uint64_t bigHashValue()                               { return m_pendingBigHash.load(std::memory_order_relaxed); }
+
     // Called for every computed hash value. Fast path: one relaxed load per tracker;
     // the record list is touched only when a hash beats the worst entry currently in it.
     static inline void submitHashValue(uint64_t value)
@@ -83,6 +90,12 @@ public:
         const uint64_t worst = m_recordWorst.load(std::memory_order_relaxed);
         if (worst == 0 || value < worst) {
             submitRecord(value);
+        }
+
+        // Exceptional hash (>= 10M difficulty): queue for announcement by
+        // the main thread. Pure value-vs-constant compare on the hot path.
+        if (value <= kBigHashValue) {
+            m_pendingBigHash.store(value, std::memory_order_relaxed);
         }
     }
 
@@ -113,6 +126,11 @@ private:
     static std::atomic<uint64_t> m_nonces[2];
     static std::atomic<uint64_t> m_bestHashValue;
     static std::atomic<uint64_t> m_sessionBestHashValue;
+    static std::atomic<uint64_t> m_pendingBigHash;
+
+    // Hash values at or below this threshold are at least 10M difficulty
+    // (diff = ~0/value), and get announced in quiet mode.
+    constexpr static uint64_t kBigHashValue = 0xFFFFFFFFFFFFFFFFULL / 10000000ULL;
     static std::atomic<uint64_t> m_recordWorst;
     static std::mutex m_recordsMutex;
     static uint64_t m_recordList[kBestHashListSize];

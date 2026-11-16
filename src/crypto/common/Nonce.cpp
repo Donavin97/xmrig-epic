@@ -30,6 +30,7 @@ std::atomic<uint64_t>  Nonce::m_sequence[Nonce::MAX] = { {1}, {1}, {1} };
 std::atomic<uint64_t> Nonce::m_nonces[2] = { {0}, {0} };
 std::atomic<uint64_t> Nonce::m_bestHashValue = {0};
 std::atomic<uint64_t> Nonce::m_sessionBestHashValue = {0};
+std::atomic<uint64_t> Nonce::m_pendingBigHash = {0};
 std::atomic<uint64_t> Nonce::m_recordWorst = {0};
 
 std::mutex Nonce::m_recordsMutex;

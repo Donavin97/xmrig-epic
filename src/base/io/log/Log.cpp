@@ -109,15 +109,19 @@ public:
 
                 const bool is_accepted = strstr(buf, "accepted") != nullptr;
 
-                // Best-hash announcements pass through in quiet mode only
-                // when the difficulty is noteworthy (>= 10,000,000).
-                // The raw diff is the number in "(...)" at the end of the
-                // line: "best hash diff this session 12.0M (12000000)".
+                // Best-hash announcements pass through in quiet mode when
+                // the difficulty is at least 1,000,000; "big hash" lines
+                // (only logged at 10M+) always clear that bar. The raw diff
+                // is the number in "(...)" at the end of the line.
                 bool is_best = false;
-                if (strstr(buf, "best hash") != nullptr) {
+                const char *best = strstr(buf, "best hash");
+                if (best == nullptr) {
+                    best = strstr(buf, "big hash");
+                }
+                if (best != nullptr) {
                     const char *paren = strrchr(buf, '(');
                     if (paren != nullptr) {
-                        is_best = strtoull(paren + 1, nullptr, 10) >= 10000000ULL;
+                        is_best = strtoull(paren + 1, nullptr, 10) >= 1000000ULL;
                     }
                 }
 

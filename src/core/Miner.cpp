@@ -759,6 +759,16 @@ void xmrig::Miner::onTimer(const Timer *)
         d_ptr->printHashrate(false);
     }
 
+    // Exceptional hashes (>= 10M difficulty) are announced even when they
+    // are not a new session record.
+    const uint64_t bigHash = Nonce::takeBigHashValue();
+    if (bigHash) {
+        LOG_INFO("%s " WHITE_BOLD("big hash diff") " " CYAN_BOLD("%s") " (" CYAN("%llu") ")",
+                 Tags::miner(),
+                 NetworkState::humanDiff(Job::toDiff(bigHash)).c_str(),
+                 static_cast<unsigned long long>(Job::toDiff(bigHash)));
+    }
+
     // Best (most difficult) actual hash produced since the miner started. Log a line
     // every time the session best improves.
     const uint64_t sessionBest = Nonce::sessionBestHashValue();
