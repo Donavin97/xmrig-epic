@@ -121,7 +121,19 @@ public:
                 if (best != nullptr) {
                     const char *paren = strrchr(buf, '(');
                     if (paren != nullptr) {
-                        is_best = strtoull(paren + 1, nullptr, 10) >= 1000000ULL;
+                        // Skip ANSI escape sequences (the colored variants
+                        // wrap the number in CSI codes): jump to the 'm'
+                        // terminator before parsing digits.
+                        const char *digits = paren + 1;
+                        if (*digits == '\x1b') {
+                            while (*digits != '\0' && *digits != 'm') {
+                                ++digits;
+                            }
+                            if (*digits == 'm') {
+                                ++digits;
+                            }
+                        }
+                        is_best = strtoull(digits, nullptr, 10) >= 1000000ULL;
                     }
                 }
 

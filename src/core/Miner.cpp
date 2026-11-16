@@ -763,7 +763,7 @@ void xmrig::Miner::onTimer(const Timer *)
     // are not a new session record.
     const uint64_t bigHash = Nonce::takeBigHashValue();
     if (bigHash) {
-        LOG_INFO("%s " WHITE_BOLD("big hash diff") " " CYAN_BOLD("%s") " (" CYAN("%llu") ")",
+        LOG_INFO("%s " WHITE_BOLD("big hash diff") " " CYAN_BOLD("%s") " (%llu)",
                  Tags::miner(),
                  NetworkState::humanDiff(Job::toDiff(bigHash)).c_str(),
                  static_cast<unsigned long long>(Job::toDiff(bigHash)));
@@ -775,7 +775,7 @@ void xmrig::Miner::onTimer(const Timer *)
     if (sessionBest != d_ptr->lastBestHashValue) {
         d_ptr->lastBestHashValue = sessionBest;
 
-        LOG_INFO("%s " WHITE_BOLD("best hash diff this session") " " CYAN_BOLD("%s") " (" CYAN("%llu") ")",
+        LOG_INFO("%s " WHITE_BOLD("best hash diff this session") " " CYAN_BOLD("%s") " (%llu)",
                  Tags::miner(),
                  NetworkState::humanDiff(Job::toDiff(sessionBest)).c_str(),
                  static_cast<unsigned long long>(Job::toDiff(sessionBest)));
