@@ -26,7 +26,6 @@
 #include "base/net/stratum/SubmitResult.h"
 #include "base/tools/Chrono.h"
 #include "base/tools/HashTop.h"
-#include "base/io/log/Tags.h"
 
 
 #include <algorithm>
@@ -400,14 +399,6 @@ void xmrig::NetworkState::add(const SubmitResult &result, const char *error)
     }
 
     m_latency.push_back(result.elapsed > 0xFFFF ? 0xFFFF : static_cast<uint16_t>(result.elapsed));
-
-    // Print high-difficulty shares (> 10M / 10000k) in both quiet and normal mode
-    if (result.actualDiff > 10000000ULL) {
-        LOG_USER("%s " MAGENTA_BOLD("high diff share") " %s (target %s)",
-                 Tags::network(),
-                 NetworkState::humanDiff(result.actualDiff).c_str(),
-                 NetworkState::humanDiff(result.diff).c_str());
-    }
 }
 
 
