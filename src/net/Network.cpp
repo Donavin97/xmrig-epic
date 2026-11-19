@@ -105,6 +105,11 @@ void xmrig::Network::execCommand(char command)
         m_state->printResults();
         break;
 
+    case 'd':
+    case 'D':
+        m_state->printJobs();
+        break;
+
     case 'c':
     case 'C':
         m_state->printConnection();
@@ -229,11 +234,11 @@ void xmrig::Network::onResultAccepted(IStrategy *, IClient *, const SubmitResult
     const char *scale = NetworkState::scaleDiff(diff);
 
     if (error) {
-        LOG_INFO("%s " RED_BOLD("rejected") " (%" PRId64 "/%" PRId64 ") diff " WHITE_BOLD("%" PRIu64 "%s") " " RED("\"%s\"") " " BLACK_BOLD("(%" PRIu64 " ms)"),
+        LOG_USER("%s " RED_BOLD("rejected") " (%" PRId64 "/%" PRId64 ") diff " WHITE_BOLD("%" PRIu64 "%s") " " RED("\"%s\"") " " BLACK_BOLD("(%" PRIu64 " ms)"),
                  backend_tag(result.backend), m_state->accepted(), m_state->rejected(), diff, scale, error, result.elapsed);
     }
     else {
-        LOG_INFO("%s " GREEN_BOLD("accepted") " (%" PRId64 "/%" PRId64 ") diff " WHITE_BOLD("%" PRIu64 "%s") " " BLACK_BOLD("(%" PRIu64 " ms)"),
+        LOG_USER("%s " GREEN_BOLD("accepted") " (%" PRId64 "/%" PRId64 ") diff " WHITE_BOLD("%" PRIu64 "%s") " " BLACK_BOLD("(%" PRIu64 " ms)"),
                  backend_tag(result.backend), m_state->accepted(), m_state->rejected(), diff, scale, result.elapsed);
     }
 }

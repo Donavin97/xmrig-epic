@@ -81,6 +81,7 @@ set(HEADERS_BASE
     src/base/tools/cryptonote/umul128.h
     src/base/tools/cryptonote/WalletAddress.h
     src/base/tools/Cvt.h
+    src/base/tools/HashTop.h
     src/base/tools/Handle.h
     src/base/tools/Span.h
     src/base/tools/String.h
@@ -200,6 +201,7 @@ if (WITH_HTTP)
         src/base/net/http/HttpData.h
         src/base/net/http/HttpResponse.h
         src/base/net/stratum/DaemonClient.h
+        src/base/net/stratum/PcoinTemplate.h
         src/base/net/stratum/SelfSelectClient.h
         src/base/net/tools/TcpServer.h
         )
@@ -220,6 +222,7 @@ if (WITH_HTTP)
         src/base/net/http/HttpListener.cpp
         src/base/net/http/HttpResponse.cpp
         src/base/net/stratum/DaemonClient.cpp
+        src/base/net/stratum/PcoinTemplate.cpp
         src/base/net/stratum/SelfSelectClient.cpp
         src/base/net/tools/TcpServer.cpp
         )

@@ -21,6 +21,7 @@
 #define XMRIG_LOG_H
 
 
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 
@@ -45,6 +46,9 @@ public:
         NOTICE,  // normal but significant condition
         INFO,    // informational
         DEBUG,   // debug-level messages
+        // Quiet-exempt level: accepted/rejected results and output of operator
+        // commands ('h', 's', 'c', ...). Printed even in quiet mode.
+        USER,
     };
 
     constexpr static size_t kMaxBufferSize = 16384;
@@ -57,10 +61,12 @@ public:
 
     static inline bool isBackground()                   { return m_background; }
     static inline bool isColors()                       { return m_colors; }
+    static inline bool isQuiet()                        { return m_quiet.load(); }
     static inline bool isVerbose()                      { return m_verbose > 0; }
     static inline uint32_t verbose()                    { return m_verbose; }
     static inline void setBackground(bool background)   { m_background = background; }
     static inline void setColors(bool colors)           { m_colors = colors; }
+    static inline void setQuiet(bool quiet)             { m_quiet.store(quiet); }
     static inline void setVerbose(uint32_t verbose)     { m_verbose = verbose; }
 
 private:
@@ -68,6 +74,7 @@ private:
     static bool m_colors;
     static LogPrivate *d;
     static uint32_t m_verbose;
+    static std::atomic<bool> m_quiet;
 };
 
 
@@ -143,6 +150,7 @@ private:
 #define LOG_WARN(x, ...)    xmrig::Log::print(xmrig::Log::WARNING, x, ##__VA_ARGS__)
 #define LOG_NOTICE(x, ...)  xmrig::Log::print(xmrig::Log::NOTICE,  x, ##__VA_ARGS__)
 #define LOG_INFO(x, ...)    xmrig::Log::print(xmrig::Log::INFO,    x, ##__VA_ARGS__)
+#define LOG_USER(x, ...)    xmrig::Log::print(xmrig::Log::USER,    x, ##__VA_ARGS__)
 #define LOG_VERBOSE(x, ...) if (xmrig::Log::verbose() > 0) { xmrig::Log::print(xmrig::Log::INFO, x, ##__VA_ARGS__); }
 #define LOG_V1(x, ...)      if (xmrig::Log::verbose() > 0) { xmrig::Log::print(xmrig::Log::INFO, x, ##__VA_ARGS__); }
 #define LOG_V2(x, ...)      if (xmrig::Log::verbose() > 1) { xmrig::Log::print(xmrig::Log::INFO, x, ##__VA_ARGS__); }

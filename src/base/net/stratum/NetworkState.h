@@ -49,6 +49,7 @@ public:
 
     void printConnection() const;
     void printResults() const;
+    void printJobs() const;
 
     static const char *scaleDiff(uint64_t &diff);
     static std::string humanDiff(uint64_t diff);
@@ -80,6 +81,7 @@ private:
     uint64_t m_failures         = 0;
     uint64_t m_hashes           = 0;
     uint64_t m_rejected         = 0;
+    uint64_t m_jobs             = 0;
 };
 
 

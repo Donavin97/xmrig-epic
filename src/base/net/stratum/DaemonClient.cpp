@@ -39,6 +39,7 @@
 #include "base/net/http/Fetch.h"
 #include "base/net/http/HttpData.h"
 #include "base/net/http/HttpListener.h"
+#include "base/net/stratum/PcoinTemplate.h"
 #include "base/net/stratum/SubmitResult.h"
 #include "base/net/tools/NetBuffer.h"
 #include "base/tools/bswap_64.h"
@@ -55,6 +56,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstring>
 #include <random>
 
 
@@ -71,11 +73,53 @@ static const char *kGetInfo                 = "/getinfo";
 static const char *kHash                    = "hash";
 static const char *kHeight                  = "height";
 static const char *kJsonRPC                 = "/json_rpc";
+static const char *kBitcoinRPC              = "/";
 
 static constexpr size_t kBlobReserveSize    = 8;
 
+// Minimal base64 encoder used for Bitcoin Core-style HTTP Basic RPC authentication.
+static std::string base64Encode(const std::string &input)
+{
+    static const char table[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+    std::string out;
+    out.reserve((input.size() + 2) / 3 * 4);
+
+    for (size_t i = 0; i < input.size(); i += 3) {
+        const size_t rem   = input.size() - i;
+        const uint32_t n   = (static_cast<uint32_t>(static_cast<uint8_t>(input[i])) << 16)
+                           | (static_cast<uint32_t>(rem > 1 ? static_cast<uint8_t>(input[i + 1]) : 0) << 8)
+                           | (rem > 2 ? static_cast<uint8_t>(input[i + 2]) : 0);
+
+        out += table[(n >> 18) & 0x3F];
+        out += table[(n >> 12) & 0x3F];
+        out += (rem > 1) ? table[(n >> 6) & 0x3F] : '=';
+        out += (rem > 2) ? table[n & 0x3F]        : '=';
+    }
+
+    return out;
+}
+
 static const char kZMQGreeting[64] = { static_cast<char>(-1), 0, 0, 0, 0, 0, 0, 0, 0, 127, 3, 0, 'N', 'U', 'L', 'L' };
 static constexpr size_t kZMQGreetingSize1 = 11;
+
+// Like Json::getObject(), but preserves non-object results (null and strings).
+// Bitcoin Core's submitblock answers with result:null on acceptance and with a
+// string (e.g. "duplicate") on rejection, and getblocktemplate callers need the
+// raw result to tell those apart.
+static const rapidjson::Value &getRawValue(const rapidjson::Value &obj, const char *key)
+{
+    static const rapidjson::Value kNullValue(rapidjson::kNullType);
+
+    if (obj.IsObject()) {
+        auto i = obj.FindMember(key);
+        if (i != obj.MemberEnd()) {
+            return i->value;
+        }
+    }
+
+    return kNullValue;
+}
 
 static const char kZMQHandshake[] = "\4\x19\5READY\xbSocket-Type\0\0\0\3SUB";
 static const char kZMQSubscribe[] = "\0\x18\1json-minimal-chain_main";
@@ -130,10 +174,52 @@ bool xmrig::DaemonClient::isTLS() const
 }
 
 
+int64_t xmrig::DaemonClient::submitPcoin(const JobResult &result)
+{
+    // CpuWorker only compares the top 64 bits of the hash with the target.
+    // Verify the full 256-bit target with the same little-endian semantics the
+    // node uses before handing the block to submitblock.
+    if (!m_pcoinTemplateValid || !m_pcoinTemplate.hashMeetsTarget(result.result())) {
+        if (!isQuiet()) {
+            LOG_WARN("%s " YELLOW("share does not meet the full 256-bit target, not submitted"), tag());
+        }
+
+        return -1;
+    }
+
+    std::string blockHex;
+    if (!m_pcoinTemplate.buildBlock(static_cast<uint32_t>(result.nonce), blockHex)) {
+        if (!isQuiet()) {
+            LOG_ERR("%s " RED_BOLD("failed to assemble block for submitblock"), tag());
+        }
+
+        return -1;
+    }
+
+    using namespace rapidjson;
+    Document doc(kObjectType);
+    Value params(kArrayType);
+    params.PushBack(Value().SetString(blockHex.c_str(), static_cast<rapidjson::SizeType>(blockHex.size()), doc.GetAllocator()), doc.GetAllocator());
+    JsonRequest::create(doc, m_sequence, "submitblock", params);
+
+#   ifdef XMRIG_PROXY_PROJECT
+    m_results[m_sequence] = SubmitResult(m_sequence, result.diff, result.actualDiff(), result.id, 0);
+#   else
+    m_results[m_sequence] = SubmitResult(m_sequence, result.diff, result.actualDiff(), 0, result.backend);
+#   endif
+
+    return rpcSend(doc);
+}
+
+
 int64_t xmrig::DaemonClient::submit(const JobResult &result)
 {
     if (result.jobId != m_currentJobId) {
         return -1;
+    }
+
+    if (m_apiVersion == API_PCOIN) {
+        return submitPcoin(result);
     }
 
     char *data = m_blocktemplateStr.data();
@@ -210,7 +296,16 @@ void xmrig::DaemonClient::connect()
         m_pool.setAlgo(m_coin.algorithm());
     }
 
-    if ((m_apiVersion == API_MONERO) && !m_walletAddress.isValid()) {
+    // PCoin (PCN) is a Bitcoin Core fork: use its native Bitcoin RPC style
+    // (Bitcoin Core getblocktemplate / submitblock) instead of the CryptoNote
+    // Monero daemon protocol.
+    if (m_coin == Coin::PCOIN) {
+        m_apiVersion = API_PCOIN;
+    }
+
+    const bool requiresWallet = (m_apiVersion == API_MONERO) && !m_walletAddress.isValid();
+
+    if (requiresWallet) {
         return connectError("Invalid wallet address.");
     }
 
@@ -247,6 +342,18 @@ void xmrig::DaemonClient::setPool(const Pool &pool)
 void xmrig::DaemonClient::onHttpData(const HttpData &data)
 {
     if (data.status != 200) {
+        if (!isQuiet()) {
+            rapidjson::Document doc;
+            if (!doc.Parse(data.body.c_str()).HasParseError() && doc.IsObject() && doc.HasMember("error") && doc["error"].IsObject()) {
+                // Bitcoin Core returns JSON-RPC errors with a non-200 HTTP status.
+                const auto &error = doc["error"];
+                LOG_ERR("%s " RED("error: ") RED_BOLD("\"%s\"") RED_S ", code: %d (HTTP %d)", tag(), Json::getString(error, "message", "unknown"), Json::getInt(error, "code", 0), data.status);
+            }
+            else {
+                const char *hint = (data.status == 401) ? " (check RPC credentials in daemon URL userinfo)" : ((data.status == 404) ? " (wrong RPC path? PCoin/Bitcoin Core serves JSON-RPC at \"/\")" : "");
+                LOG_ERR("%s " RED("HTTP error: ") RED_BOLD("%d") RED_S "%s", tag(), data.status, hint);
+            }
+        }
         return retry();
     }
 
@@ -303,7 +410,7 @@ void xmrig::DaemonClient::onHttpData(const HttpData &data)
         return;
     }
 
-    if (!parseResponse(Json::getInt64(doc, "id", -1), Json::getObject(doc, "result"), Json::getObject(doc, "error"))) {
+    if (!parseResponse(Json::getInt64(doc, "id", -1), getRawValue(doc, "result"), getRawValue(doc, "error"))) {
         retry();
     }
 }
@@ -327,6 +434,11 @@ void xmrig::DaemonClient::onTimer(const Timer *)
         connect();
     }
     else if (m_state == ConnectedState) {
+        if (m_apiVersion == API_PCOIN) {
+            // PCoin has no /getheight or /getinfo endpoints; poll the template directly.
+            getBlockTemplate();
+            return;
+        }
         send((m_apiVersion == API_MONERO) ? kGetHeight : kGetInfo);
     }
 }
@@ -508,10 +620,42 @@ bool xmrig::DaemonClient::parseResponse(int64_t id, const rapidjson::Value &resu
     }
 
     if (error.IsObject()) {
-        const char *message = error["message"].GetString();
+        const char *message = Json::getString(error, "message", "unknown");
 
         if (!handleSubmitResponse(id, message) && !isQuiet()) {
             LOG_ERR("[%s:%d] error: " RED_BOLD("\"%s\"") RED_S ", code: %d", m_pool.host().data(), m_pool.port(), message, error["code"].GetInt());
+        }
+
+        return false;
+    }
+
+    if (m_apiVersion == API_PCOIN && !result.IsObject()) {
+        // submitblock answers with result:null on acceptance and with a string
+        // (e.g. "duplicate", "rejected", "inconclusive") on failure. getObject()
+        // collapses both to kNullValue, so handle them before the generic path.
+        if (result.IsNull()) {
+            if (handleSubmitResponse(id, nullptr)) {
+                if (m_pool.zmq_port() < 0) {
+                    getBlockTemplate();
+                }
+                return true;
+            }
+            return false;
+        }
+
+        if (result.IsString()) {
+            const char *reason = result.GetString();
+            if (handleSubmitResponse(id, reason)) {
+                if (m_pool.zmq_port() < 0) {
+                    getBlockTemplate();
+                }
+                return true;
+            }
+
+            if (!isQuiet()) {
+                LOG_ERR("[%s:%d] submitblock rejected: " RED_BOLD("\"%s\""), m_pool.host().data(), m_pool.port(), reason);
+            }
+            return true;
         }
 
         return false;
@@ -525,6 +669,80 @@ bool xmrig::DaemonClient::parseResponse(int64_t id, const rapidjson::Value &resu
         if (m_prevHash != Json::getString(result, "top_block_hash")) {
             getBlockTemplate();
         }
+        return true;
+    }
+
+    if (m_apiVersion == API_PCOIN && result.HasMember("previousblockhash")) {
+        // Bitcoin Core-style GBT: assemble the coinbase transaction, the header
+        // merkle root and the 80-byte RandomX PoW blob ourselves, since the daemon
+        // returns no hashing blob and no coinbase.
+        if (m_user.isNull() || m_user.isEmpty()) {
+            if (!isQuiet()) {
+                LOG_ERR("%s " RED_BOLD("payout address is not set (pool \"user\")"), tag());
+            }
+            return false;
+        }
+
+        const std::string payoutAddress(m_user.data(), m_user.size());
+
+        PcoinTemplate tmpl;
+        std::string error;
+        if (!tmpl.parse(result, payoutAddress, error)) {
+            if (!isQuiet()) {
+                LOG_ERR("%s " RED_BOLD("getblocktemplate error: \"%s\""), tag(), error.c_str());
+            }
+            return false;
+        }
+
+        // Skip re-announcing a template we already assembled -- but only while
+        // it is younger than daemon-job-timeout, same as stock xmrig refreshes a
+        // stale job (see isOutdated()). GBT's curtime changes on every poll, so
+        // compare a time-independent identity instead of the blob: refreshing
+        // after the timeout re-assembles with a fresh timestamp.
+        if (m_pcoinTemplateValid
+            && m_pcoinTemplate.identity() == tmpl.identity()
+            && Chrono::steadyMSecs() < m_jobSteadyMs + m_pool.jobTimeout()) {
+            return true;
+        }
+
+        m_pcoinTemplate = std::move(tmpl);
+        m_pcoinTemplateValid = true;
+
+        Job job(false, m_pool.algorithm(), String());
+        job.setAlgorithm(m_coin.isValid() ? m_coin.algorithm() : m_pool.algorithm());
+
+        if (!job.setBlob(Cvt::toHex(m_pcoinTemplate.blob(), m_pcoinTemplate.blobSize()))) {
+            if (!isQuiet()) {
+                LOG_ERR("%s " RED_BOLD("failed to set job blob from template"), tag());
+            }
+            return false;
+        }
+
+        if (!job.setTarget(m_pcoinTemplate.target().c_str())) {
+            if (!isQuiet()) {
+                LOG_ERR("%s " RED_BOLD("failed to set job target from template"), tag());
+            }
+            return false;
+        }
+
+        job.setHeight(m_pcoinTemplate.height());
+
+        // PCoin's RandomX key is a FIXED 16-byte ASCII string and never rotates.
+        static const uint8_t kPcoinSeed[16] = { 'P','C','o','i','n','/','R','a','n','d','o','m','X','/','v','1' };
+        job.setSeedRaw(kPcoinSeed, sizeof(kPcoinSeed));
+
+        m_currentJobId = Cvt::toHex(Cvt::randomBytes(4));
+        job.setId(m_currentJobId);
+
+        m_job              = std::move(job);
+        m_prevHash         = Json::getString(result, "previousblockhash");
+        m_jobSteadyMs      = Chrono::steadyMSecs();
+
+        if (m_state == ConnectingState) {
+            setState(ConnectedState);
+        }
+
+        m_listener->onJobReceived(this, m_job, result);
         return true;
     }
 
@@ -553,11 +771,28 @@ int64_t xmrig::DaemonClient::getBlockTemplate()
     Document doc(kObjectType);
     auto &allocator = doc.GetAllocator();
 
-    Value params(kObjectType);
-    params.AddMember("wallet_address", m_user.toJSON(), allocator);
-    params.AddMember("extra_nonce", Cvt::toHex(Cvt::randomBytes(kBlobReserveSize)).toJSON(doc), allocator);
+    if (m_apiVersion == API_PCOIN) {
+        // PCoin is a Bitcoin Core fork: getblocktemplate requires the segwit rule,
+        // and the miner is expected to build its own coinbase (the daemon does not
+        // return one). Payout address and capabilities are NOT getblocktemplate
+        // parameters.
+        Value params(kArrayType);
+        Value options(kObjectType);
+        Value rules(kArrayType);
+        rules.PushBack("segwit", allocator);
+        options.AddMember("rules", rules, allocator);
+        params.PushBack(options, allocator);
 
-    JsonRequest::create(doc, m_sequence, "getblocktemplate", params);
+        JsonRequest::create(doc, m_sequence, "getblocktemplate", params);
+    }
+    else {
+        // Monero/CryptoNote style getblocktemplate
+        Value params(kObjectType);
+        params.AddMember("wallet_address", m_user.toJSON(), allocator);
+        params.AddMember("extra_nonce", Cvt::toHex(Cvt::randomBytes(kBlobReserveSize)).toJSON(doc), allocator);
+
+        JsonRequest::create(doc, m_sequence, "getblocktemplate", params);
+    }
 
     return rpcSend(doc);
 }
@@ -565,9 +800,21 @@ int64_t xmrig::DaemonClient::getBlockTemplate()
 
 int64_t xmrig::DaemonClient::rpcSend(const rapidjson::Document &doc, const std::map<std::string, std::string> &headers)
 {
-    FetchRequest req(HTTP_POST, m_pool.host(), m_pool.port(), kJsonRPC, doc, m_pool.isTLS(), isQuiet());
+    // PCoin (Bitcoin Core) serves JSON-RPC at "/"; Monero serves it at "/json_rpc".
+    const char *path = (m_apiVersion == API_PCOIN) ? kBitcoinRPC : kJsonRPC;
+
+    FetchRequest req(HTTP_POST, m_pool.host(), m_pool.port(), path, doc, m_pool.isTLS(), isQuiet());
     for (const auto &header : headers) {
         req.headers.insert(header);
+    }
+
+    // Bitcoin Core-style RPC requires HTTP Basic authentication. Credentials come
+    // from the userinfo part of the daemon URL: daemon+http://rpcuser:rpcpassword@host:port
+    const String &rpcUser     = m_pool.rpcUser();
+    const String &rpcPassword = m_pool.rpcPassword();
+    if (!rpcUser.isNull() && !rpcUser.isEmpty()) {
+        const std::string credentials = std::string(rpcUser.data(), rpcUser.size()) + ':' + std::string(rpcPassword.data(), rpcPassword.size());
+        req.headers.insert({ "Authorization", "Basic " + base64Encode(credentials) });
     }
 
     fetch(tag(), std::move(req), m_httpListener);

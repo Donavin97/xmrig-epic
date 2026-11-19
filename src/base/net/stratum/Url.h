@@ -44,6 +44,8 @@ public:
     inline bool isValid() const                         { return !m_host.isNull() && m_port > 0; }
     inline const String &host() const                   { return m_host; }
     inline const String &url() const                    { return m_url; }
+    inline const String &userName() const               { return m_userName; }
+    inline const String &password() const               { return m_password; }
     inline Scheme scheme() const                        { return m_scheme; }
     inline uint16_t port() const                        { return m_port; }
 
@@ -60,6 +62,8 @@ protected:
     Scheme m_scheme = UNSPECIFIED;
     String m_host;
     String m_url;
+    String m_userName;
+    String m_password;
     uint16_t m_port = 3333;
 };
 

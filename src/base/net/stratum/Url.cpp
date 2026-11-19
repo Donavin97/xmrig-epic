@@ -23,6 +23,7 @@
 #include <cstring>
 #include <cstdlib>
 #include <cstdio>
+#include <string>
 
 
 #ifdef _MSC_VER
@@ -115,7 +116,34 @@ bool xmrig::Url::parse(const char *url)
         return false;
     }
 
-    m_url = url;
+    // Strip optional userinfo ("user[:password]@") from the authority part.  The
+    // credentials are stored separately and are intentionally removed from the
+    // URL that is kept in m_url so they never end up in logs or config output.
+    std::string sanitized;
+    const char *at = strrchr(base, '@');
+    if (at) {
+        const char *colon = strchr(base, ':');
+
+        if (colon && colon < at) {
+            m_userName = String(base, static_cast<size_t>(colon - base));
+            m_password = String(colon + 1, static_cast<size_t>(at - colon - 1));
+        }
+        else {
+            m_userName = String(base, static_cast<size_t>(at - base));
+        }
+
+        const size_t prefix = p ? static_cast<size_t>(base - url) : 0;
+        sanitized.assign(url, prefix);
+        sanitized += at + 1;
+
+        base = at + 1;
+    }
+
+    if (!strlen(base) || *base == '/') {
+        return false;
+    }
+
+    m_url = sanitized.empty() ? String(url) : String(sanitized.c_str(), sanitized.size());
     if (base[0] == '[') {
         return parseIPv6(base);
     }

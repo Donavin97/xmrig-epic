@@ -261,7 +261,7 @@ public:
             for (uint32_t j = i; j < n1; ++j) {
                 ProfileScopeData* p = data[j];
                 const double t = p->m_totalCycles / p->m_totalSamples * 1e9 / ProfileScopeData::s_tscSpeed;
-                LOG_INFO("%s Thread %6s | %-30s | %7.3f%% | %9.0f ns",
+                LOG_USER("%s Thread %6s | %-30s | %7.3f%% | %9.0f ns",
                     Tags::profiler(),
                     p->m_threadId,
                     p->m_name,
@@ -340,7 +340,10 @@ public:
         }
 #       endif
 
-        LOG_INFO("%s " WHITE_BOLD("speed") " 10s/60s/15m " CYAN_BOLD("%s") CYAN(" %s %s ") CYAN_BOLD("%s") " max " CYAN_BOLD("%s %s") "%s",
+        // 'h' (details == true) prints as quiet-exempt USER; the periodic print-time
+        // timer (details == false) stays INFO so quiet mode hides it.
+        xmrig::Log::print(details ? xmrig::Log::USER : xmrig::Log::INFO,
+                 "%s " WHITE_BOLD("speed") " 10s/60s/15m " CYAN_BOLD("%s") CYAN(" %s %s ") CYAN_BOLD("%s") " max " CYAN_BOLD("%s %s") "%s",
                  Tags::miner(),
                  Hashrate::format(speed[0],                 num,          16),
                  Hashrate::format(speed[1],                 num + 16,     16),
@@ -477,6 +480,12 @@ void xmrig::Miner::execCommand(char command)
         d_ptr->printHashrate(true);
         break;
 
+    case 'q':
+    case 'Q':
+        Log::setQuiet(!Log::isQuiet());
+        LOG_USER("%s " WHITE_BOLD("quiet mode") " %s", Tags::miner(), Log::isQuiet() ? "on" : "off");
+        break;
+
     case 'p':
     case 'P':
         setEnabled(false);
@@ -521,7 +530,7 @@ void xmrig::Miner::setEnabled(bool enabled)
     }
 
     if (d_ptr->controller->config()->isPauseOnBattery() && d_ptr->battery_power && enabled) {
-        LOG_INFO("%s " YELLOW_BOLD("can't resume while on battery power"), Tags::miner());
+        LOG_USER("%s " YELLOW_BOLD("can't resume while on battery power"), Tags::miner());
 
         return;
     }
@@ -530,14 +539,14 @@ void xmrig::Miner::setEnabled(bool enabled)
     d_ptr->m_taskbar.setEnabled(enabled);
 
     if (enabled) {
-        LOG_INFO("%s " GREEN_BOLD("resumed"), Tags::miner());
+        LOG_USER("%s " GREEN_BOLD("resumed"), Tags::miner());
     }
     else {
         if (d_ptr->battery_power) {
-            LOG_INFO("%s " YELLOW_BOLD("paused"), Tags::miner());
+            LOG_USER("%s " YELLOW_BOLD("paused"), Tags::miner());
         }
         else {
-            LOG_INFO("%s " YELLOW_BOLD("paused") ", press " MAGENTA_BG_BOLD(" r ") " to resume", Tags::miner());
+            LOG_USER("%s " YELLOW_BOLD("paused") ", press " MAGENTA_BG_BOLD(" r ") " to resume", Tags::miner());
         }
     }
 

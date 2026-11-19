@@ -37,6 +37,7 @@
 #include "crypto/rx/RxDataset.h"
 #include "crypto/rx/RxVm.h"
 #include "crypto/ghostrider/ghostrider.h"
+#include "base/tools/HashTop.h"
 #include "net/JobResults.h"
 
 
@@ -354,6 +355,11 @@ void xmrig::CpuWorker<N>::start()
             if (valid) {
                 for (size_t i = 0; i < N; ++i) {
                     const uint64_t value = *reinterpret_cast<uint64_t*>(m_hash + (i * 32) + 24);
+
+                    // Track the best achieved hash difficulties for the 'd' command.
+                    // Fast path is a single atomic compare; a lock is only taken
+                    // when this hash beats the current 10th best.
+                    HashTop::add(value);
 
 #                   ifdef XMRIG_FEATURE_BENCHMARK
                     if (m_benchSize) {

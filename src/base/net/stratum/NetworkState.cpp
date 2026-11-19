@@ -25,9 +25,11 @@
 #include "base/net/stratum/Pool.h"
 #include "base/net/stratum/SubmitResult.h"
 #include "base/tools/Chrono.h"
+#include "base/tools/HashTop.h"
 
 
 #include <algorithm>
+#include <chrono>
 #include <cstdio>
 #include <cstring>
 #include <uv.h>
@@ -180,7 +182,7 @@ rapidjson::Value xmrig::NetworkState::getResults(rapidjson::Document &doc, int v
 void xmrig::NetworkState::printConnection() const
 {
     if (!m_active) {
-        LOG_NOTICE(YELLOW_BOLD_S "no active connection");
+        LOG_USER(YELLOW_BOLD_S "no active connection");
 
         return;
     }
@@ -199,7 +201,7 @@ void xmrig::NetworkState::printConnection() const
 void xmrig::NetworkState::printResults() const
 {
     if (!m_hashes) {
-        LOG_NOTICE(YELLOW_BOLD_S "no results yet");
+        LOG_USER(YELLOW_BOLD_S "no results yet");
 
         return;
     }
@@ -237,7 +239,7 @@ const char *xmrig::NetworkState::scaleDiff(uint64_t &diff)
         return "M";
     }
 
-    if (diff >= 1000000) {
+    if (diff >= 1000) {
         diff /= 1000;
 
         return "K";
@@ -273,8 +275,62 @@ void xmrig::NetworkState::onJob(IStrategy *strategy, IClient *client, const Job 
 {
     m_algorithm = job.algorithm();
     m_diff      = job.diff();
+    m_jobs++;
 
     StrategyProxy::onJob(strategy, client, job, params);
+}
+
+
+static std::string formatAge(int64_t secs)
+{
+    if (secs < 0) {
+        secs = 0;
+    }
+
+    char buf[32];
+    if (secs < 60) {
+        snprintf(buf, sizeof(buf), "%" PRId64 "s", secs);
+    }
+    else if (secs < 3600) {
+        snprintf(buf, sizeof(buf), "%" PRId64 "m%02" PRId64 "s", secs / 60, secs % 60);
+    }
+    else {
+        snprintf(buf, sizeof(buf), "%" PRId64 "h%02" PRId64 "m", secs / 3600, (secs % 3600) / 60);
+    }
+
+    return std::string(buf);
+}
+
+
+void xmrig::NetworkState::printJobs() const
+{
+    if (!m_jobs && !HashTop::total()) {
+        LOG_USER(YELLOW_BOLD_S "no jobs yet");
+        return;
+    }
+
+    Log::print(MAGENTA_BOLD_S " - JOBS");
+
+    Log::print(GREEN_BOLD(" * ") WHITE_BOLD("%-17s") CYAN_BOLD("%" PRIu64), "jobs received", m_jobs);
+    printDiff(m_diff);
+
+    Log::print(MAGENTA_BOLD_S " - TOP 10 HASHES");
+    Log::print(GREEN_BOLD(" * ") WHITE_BOLD("%-17s") CYAN_BOLD("%" PRIu64), "hashes tracked", HashTop::total());
+
+    std::array<HashTop::Entry, 10> entries;
+    const size_t count = HashTop::top(entries);
+    if (!count) {
+        Log::print(WHITE_BOLD_S "  (no hashes tracked yet)");
+        return;
+    }
+
+    Log::print(WHITE_BOLD_S "  # | DIFFICULTY | FOUND    |");
+
+    const auto now = std::chrono::steady_clock::now();
+    for (size_t i = 0; i < count; ++i) {
+        const auto secs = std::chrono::duration_cast<std::chrono::seconds>(now - entries[i].time).count();
+        Log::print("%3zu | %10s | %s ago |", i + 1, NetworkState::humanDiff(entries[i].diff).c_str(), formatAge(secs).c_str());
+    }
 }
 
 

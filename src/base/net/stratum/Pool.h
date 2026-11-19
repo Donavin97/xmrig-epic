@@ -106,6 +106,8 @@ public:
     inline const String &password() const               { return !m_password.isNull() ? m_password : kDefaultPassword; }
     inline const String &rigId() const                  { return m_rigId; }
     inline const String &url() const                    { return m_url.url(); }
+    inline const String &rpcUser() const                { return m_url.userName(); }
+    inline const String &rpcPassword() const            { return m_url.password(); }
     inline const String &user() const                   { return !m_user.isNull() ? m_user : kDefaultUser; }
     inline const String &spendSecretKey() const         { return m_spendSecretKey; }
     inline const Url &daemon() const                    { return m_daemon; }

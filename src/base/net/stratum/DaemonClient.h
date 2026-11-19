@@ -25,6 +25,7 @@
 #include "base/kernel/interfaces/IHttpListener.h"
 #include "base/kernel/interfaces/ITimerListener.h"
 #include "base/net/stratum/BaseClient.h"
+#include "base/net/stratum/PcoinTemplate.h"
 #include "base/net/tools/Storage.h"
 #include "base/tools/cryptonote/BlockTemplate.h"
 #include "base/tools/cryptonote/WalletAddress.h"
@@ -86,6 +87,7 @@ private:
     bool parseJob(const rapidjson::Value &params, int *code);
     bool parseResponse(int64_t id, const rapidjson::Value &result, const rapidjson::Value &error);
     int64_t getBlockTemplate();
+    int64_t submitPcoin(const JobResult &result);
     int64_t rpcSend(const rapidjson::Document &doc, const std::map<std::string, std::string> &headers = {});
     void retry();
     void send(const char *path);
@@ -94,9 +96,12 @@ private:
     enum {
         API_CRYPTONOTE_DEFAULT,
         API_MONERO,
+        API_PCOIN = 2,
     } m_apiVersion = API_MONERO;
 
     BlockTemplate m_blocktemplate;
+    PcoinTemplate m_pcoinTemplate;
+    bool m_pcoinTemplateValid = false;
     Coin m_coin;
     std::shared_ptr<IHttpListener> m_httpListener;
     String m_blockhashingblob;

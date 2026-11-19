@@ -55,6 +55,7 @@ static const char *colors_map[] = {
 #   else
     BRIGHT_BLACK_S // DEBUG
 #   endif
+    , nullptr,      // USER
 };
 
 
@@ -81,6 +82,13 @@ public:
 
     void print(Log::Level level, const char *fmt, va_list args)
     {
+        if (Log::isQuiet() && level >= Log::NOTICE && level != Log::USER) {
+            // Quiet mode ('q'): only accepted/rejected results, command output
+            // (USER), warnings and errors are printed. Everything else is dropped
+            // before doing any formatting work.
+            return;
+        }
+
         size_t size   = 0;
         size_t offset = 0;
 
@@ -196,6 +204,7 @@ bool Log::m_background      = false;
 bool Log::m_colors          = true;
 LogPrivate *Log::d          = nullptr;
 uint32_t Log::m_verbose     = 0;
+std::atomic<bool> Log::m_quiet{ false };
 
 
 } /* namespace xmrig */
