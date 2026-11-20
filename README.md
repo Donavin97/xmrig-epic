@@ -30,7 +30,7 @@ The preferred way to configure the miner is the [JSON config file](https://xmrig
 
 This fork supports solo mining PCoin against a `pcoind` daemon (a Bitcoin Core v29.4 fork, RandomX PoW). Build with `rx/pcoin` enabled and run with the `--daemon` flag.
 
-PCoin's RPC is Bitcoin Core style JSON-RPC on port **9443** (P2P port **9444**). Authentication is HTTP Basic, and the credentials are taken from the URL userinfo of the daemon URL: `daemon+http://RPUSER:RPCPASSWORD@host:9443`. The credentials are stripped from the logged/stored URL and are never printed.
+PCoin's RPC is Bitcoin Core style JSON-RPC on port **9443** (P2P port **9444**). Authentication is HTTP Basic, and the credentials are taken from the URL userinfo: `http://RPUSER:RPCPASSWORD@host:9443`. The credentials are stripped from the logged/stored URL and are never printed.
 
 Example JSON pool section:
 
@@ -38,7 +38,7 @@ Example JSON pool section:
 {
     "pools": [
         {
-            "url": "daemon+http://rpcuser:rpcpassword@10.210.2.46:9443",
+            "url": "rpcuser:rpcpassword@10.210.2.46:9443",
             "user": "pc1YOURPCNBECH32ADDRESS",
             "pass": "x",
             "daemon": true,
@@ -53,7 +53,7 @@ Example JSON pool section:
 Or via command line:
 
 ```sh
-xmrig -a rx/pcoin -u pc1YOURADDRESS -o daemon+http://rpcuser:rpcpassword@10.210.2.46:9443 --daemon
+xmrig -a rx/pcoin -u pc1YOURADDRESS -o rpcuser:rpcpassword@10.210.2.46:9443 --daemon
 ```
 
 Notes:
@@ -61,7 +61,7 @@ Notes:
 * Target parsing uses a 32-byte big-endian integer target; the full 256-bit target is verified before a block is handed to `submitblock` (the in-miner share check only compares the top 64 bits).
 * The RandomX key is fixed (`PCoin/RandomX/v1`, 16 bytes ASCII) and never rotates.
 * The payout address (`user`) must be a PCoin bech32 address with HRP `pc` (segwit v0 uses bech32, v1+ uses bech32m); the coinbase it pays goes to this address.
-* PCoin's RPC is Bitcoin Core style at path `/` (not Monero's `/json_rpc`); the daemon URL scheme `daemon+http` selects this mode. `getblocktemplate` is sent with `{"rules":["segwit"]}` and the node answers only while it is connected to the P2P network.
+* PCoin's RPC is Bitcoin Core style at path `/` (not Monero's `/json_rpc`); the `"coin": "PCoin"` + `"daemon": true` combination selects this mode. `getblocktemplate` is sent with `{"rules":["segwit"]}` and the node answers only while it is connected to the P2P network.
 * The miner assembles full blocks client-side: coinbase transaction with BIP34 height push, minimal-witness (`[32 zero bytes]`), the `default_witness_commitment` from the template appended verbatim as a 0-value OP_RETURN output, the merkle root over `[coinbase txid, template transactions]`, and the 80-byte RandomX header (`nonce` at offset 76). Assembled blocks are verified against the template's `default_witness_commitment` formula and submitted via `submitblock`.
 * Solo mining PCoin is live: xmrig polls `getblocktemplate`, assembles and hashes blocks, and submits winning blocks via `submitblock`. Reward maturity is 100 blocks; solo miners find blocks infrequently (difficulty ~0.08 at the time of writing, so expect shares roughly every few minutes per thread rather than daily).
 * The daemon only answers `getblocktemplate` while it is connected to the P2P network — if xmrig logs template errors, check `getconnectioncount` (and the node's `-prune`/connectivity) first.
