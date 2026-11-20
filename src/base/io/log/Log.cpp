@@ -34,9 +34,6 @@
 
 
 #include "base/io/log/Log.h"
-#include "base/io/log/backends/ConsoleLog.h"
-#include "base/io/log/backends/QuietLog.h"
-#include "base/kernel/config/Title.h"
 #include "base/kernel/interfaces/ILogBackend.h"
 #include "base/tools/Chrono.h"
 #include "base/tools/Object.h"
@@ -82,42 +79,6 @@ public:
 
     inline void add(ILogBackend *backend) { m_backends.push_back(backend); }
 
-    inline void removeBackend(ILogBackend *backend)
-    {
-        auto it = std::find(m_backends.begin(), m_backends.end(), backend);
-        if (it != m_backends.end()) {
-            m_backends.erase(it);
-        }
-    }
-
-    inline bool hasBackend(ILogBackend *backend) const
-    {
-        return std::find(m_backends.begin(), m_backends.end(), backend) != m_backends.end();
-    }
-
-    inline bool hasConsoleLog() const
-    {
-        for (auto backend : m_backends) {
-            if (backend->isConsoleLog()) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    inline void removeConsoleLog()
-    {
-        for (auto it = m_backends.begin(); it != m_backends.end(); ) {
-            if ((*it)->isConsoleLog()) {
-                delete *it;
-                it = m_backends.erase(it);
-            }
-            else {
-                ++it;
-            }
-        }
-    }
-
 
     void print(Log::Level level, const char *fmt, va_list args)
     {
@@ -135,30 +96,6 @@ public:
 
         if (Log::isBackground() && m_backends.empty()) {
             return;
-        }
-
-        // Quiet mode: suppress INFO/NOTICE messages unless they are accepted
-        // job notifications or best-hash difficulty output.
-        if (Log::isQuiet() && (level == Log::INFO || level == Log::NOTICE)) {
-            va_list args_copy;
-            va_copy(args_copy, args);
-            const int rc = vsnprintf(nullptr, 0, fmt, args_copy);
-            va_end(args_copy);
-
-            if (rc <= 0) {
-                return;
-            }
-
-            char buf[512];
-            const size_t n = static_cast<size_t>(rc) < sizeof(buf) - 1 ? static_cast<size_t>(rc) : sizeof(buf) - 1;
-            vsnprintf(buf, n + 1, fmt, args);
-            buf[n] = '\0';
-
-            const bool is_accepted = strstr(buf, "accepted") != nullptr;
-            const bool is_best     = strstr(buf, "best hash") != nullptr;
-            if (!is_accepted && !is_best) {
-                return;
-            }
         }
 
         const uint64_t ts = timestamp(level, size, offset);
@@ -268,7 +205,6 @@ bool Log::m_colors          = true;
 LogPrivate *Log::d          = nullptr;
 uint32_t Log::m_verbose     = 0;
 std::atomic<bool> Log::m_quiet{ false };
-ILogBackend *Log::m_quietBackend = nullptr;
 
 
 } /* namespace xmrig */
@@ -281,16 +217,6 @@ void xmrig::Log::add(ILogBackend *backend)
 
     if (d) {
         d->add(backend);
-    }
-}
-
-
-void xmrig::Log::remove(ILogBackend *backend)
-{
-    assert(d != nullptr);
-
-    if (d) {
-        d->removeBackend(backend);
     }
 }
 
@@ -335,40 +261,4 @@ void xmrig::Log::print(Level level, const char *fmt, ...)
     d->print(level, fmt, args);
 
     va_end(args);
-}
-
-
-void xmrig::Log::setQuiet(bool quiet)
-{
-    const bool wasQuiet = m_quiet.load();
-    if (wasQuiet == quiet) {
-        return;
-    }
-
-    m_quiet.store(quiet);
-
-    if (!d) {
-        return;
-    }
-
-    if (quiet) {
-        // Entering quiet mode: remove ConsoleLog, add QuietLog
-        d->removeConsoleLog();
-
-        if (!m_quietBackend) {
-            m_quietBackend = new QuietLog();
-        }
-        d->add(m_quietBackend);
-    }
-    else {
-        // Exiting quiet mode: remove QuietLog, add ConsoleLog
-        if (m_quietBackend) {
-            d->removeBackend(m_quietBackend);
-        }
-
-        if (!d->hasConsoleLog()) {
-            // Add ConsoleLog with default Title (will be reinitialized with proper title on restart)
-            d->add(new ConsoleLog(Title()));
-        }
-    }
 }

@@ -13,7 +13,6 @@ set(HEADERS_BASE
     src/base/io/json/JsonRequest.h
     src/base/io/log/backends/ConsoleLog.h
     src/base/io/log/backends/FileLog.h
-    src/base/io/log/backends/QuietLog.h
     src/base/io/log/FileLogWriter.h
     src/base/io/log/Log.h
     src/base/io/log/Tags.h
@@ -104,7 +103,6 @@ set(SOURCES_BASE
     src/base/io/json/JsonRequest.cpp
     src/base/io/log/backends/ConsoleLog.cpp
     src/base/io/log/backends/FileLog.cpp
-    src/base/io/log/backends/QuietLog.cpp
     src/base/io/log/FileLogWriter.cpp
     src/base/io/log/Log.cpp
     src/base/io/log/Tags.cpp

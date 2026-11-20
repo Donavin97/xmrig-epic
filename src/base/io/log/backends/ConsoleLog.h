@@ -43,8 +43,6 @@ public:
     ConsoleLog(const Title &title);
     ~ConsoleLog() override;
 
-    bool isConsoleLog() const override { return true; }
-
 protected:
     void print(uint64_t timestamp, int level, const char *line, size_t offset, size_t size, bool colors) override;
 
