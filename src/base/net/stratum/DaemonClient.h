@@ -103,6 +103,7 @@ private:
     PcoinTemplate m_pcoinTemplate;
     bool m_pcoinTemplateValid = false;
     Coin m_coin;
+    bool m_rawTemplate = false;
     std::shared_ptr<IHttpListener> m_httpListener;
     String m_blockhashingblob;
     String m_blocktemplateRequestHash;

@@ -22,6 +22,7 @@
 #define ALGO_RX_V2          0x72151202
 #define ALGO_RX_WOW         0x72141177
 #define ALGO_RX_ARQMA       0x72121061
+#define ALGO_RX_SALVIUM     0x72151280
 #define ALGO_RX_SFX         0x72151273
 #define ALGO_RX_GRAFT       0x72151267
 #define ALGO_RX_YADA        0x72151279

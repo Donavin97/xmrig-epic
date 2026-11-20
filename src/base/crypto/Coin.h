@@ -42,6 +42,8 @@ public:
         TOWNFORGE,
         YADA,
         PCOIN,
+        SALVIUM,
+        TARI,
         MAX
     };
 

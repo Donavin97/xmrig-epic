@@ -364,13 +364,15 @@ void xmrig::CpuWorker<N>::start()
                     // when this hash beats the current 10th best.
                     HashTop::add(value);
 
+                    // Tari/Epic use Nonce's best-hash trackers for their 'd'
+                    // output and the best_hash_diff API field.
+                    Nonce::submitHashValue(value);
+
                     // Log high-difficulty hashes (> 10M / 10000k) in both quiet and normal mode.
                     // actualDiff = 0xFFFFFFFFFFFFFFFF / value (same as JobResult::actualDiff())
                     if (value > 0 && value < 0xFFFFFFFFFFFFFFFFULL) {
                         const uint64_t actualDiff = 0xFFFFFFFFFFFFFFFFULL / value;
                         if (actualDiff > 10000000ULL) {
-                            // Use a simple log that bypasses the network state - just print directly
-                            // We'll use the Log::print with USER level via a helper
                             xmrig::Log::print(xmrig::Log::USER,
                                 "%s " MAGENTA_BOLD("high diff hash") " %s",
                                 Tags::miner(),
