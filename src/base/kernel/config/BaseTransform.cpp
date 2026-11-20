@@ -249,6 +249,12 @@ void xmrig::BaseTransform::transform(rapidjson::Document &doc, int key, const ch
     case IConfig::DaemonZMQPortKey: /* --daemon-zmq-port */
         return transformUint64(doc, key, static_cast<uint64_t>(strtol(arg, nullptr, 10)));
 
+    case IConfig::DaemonShareDiffKey: /* --daemon-share-diff */
+        if (strcmp(arg, "block") == 0) {
+            return add(doc, Pools::kPools, Pool::kDaemonShareDiff, arg);
+        }
+        return transformUint64(doc, key, static_cast<uint64_t>(strtol(arg, nullptr, 10)));
+
     case IConfig::BackgroundKey:  /* --background */
     case IConfig::SyslogKey:      /* --syslog */
     case IConfig::KeepAliveKey:   /* --keepalive */
@@ -259,6 +265,7 @@ void xmrig::BaseTransform::transform(rapidjson::Document &doc, int key, const ch
     case IConfig::DaemonKey:      /* --daemon */
     case IConfig::SubmitToOriginKey: /* --submit-to-origin */
     case IConfig::VerboseKey:     /* --verbose */
+    case IConfig::QuietKey:       /* --quiet */
     case IConfig::DnsIPv4Key:     /* --ipv4 */
     case IConfig::DnsIPv6Key:     /* --ipv6 */
         return transformBoolean(doc, key, true);
@@ -364,6 +371,9 @@ void xmrig::BaseTransform::transformUint64(rapidjson::Document &doc, int key, ui
 
     case IConfig::DaemonJobTimeoutKey:  /* --daemon-job-timeout */
         return add(doc, Pools::kPools, Pool::kDaemonJobTimeout, arg);
+
+    case IConfig::DaemonShareDiffKey:  /* --daemon-share-diff */
+        return add(doc, Pools::kPools, Pool::kDaemonShareDiff, arg);
 
     case IConfig::DaemonZMQPortKey:  /* --daemon-zmq-port */
         return add(doc, Pools::kPools, Pool::kDaemonZMQPort, arg);

@@ -59,14 +59,21 @@ static inline const std::string &usage()
     u += "  -4, --ipv4                    resolve names to IPv4 addresses\n";
     u += "  -6, --ipv6                    resolve names to IPv6 addresses\n";
     u += "      --dns-ttl=N               N seconds (default: 30) TTL for internal DNS cache\n";
+    u += "      --quiet                   suppress INFO/NOTICE log output except accepted shares and best-hash difficulty notifications\n";
 
 #   ifdef XMRIG_FEATURE_HTTP
     u += "      --daemon                  use daemon RPC instead of pool for solo mining\n";
     u += "      --daemon-zmq-port=N       daemon's zmq-pub port number (only use it if daemon has it enabled)\n";
     u += "      --daemon-poll-interval=N  daemon poll interval in milliseconds (default: 1000)\n";
     u += "      --daemon-job-timeout=N    daemon job timeout in milliseconds (default: 15000)\n";
+    u += "      --daemon-share-diff=N     minimum share difficulty for Epic Cash daemon mode\n";
+    u += "                                (default: 0 = use the node's minimum, e.g. 4000;\n";
+    u += "                                \"block\" = only submit full block solutions at the\n";
+    u += "                                network block difficulty, pure solo mining)\n";
     u += "      --self-select=URL         self-select block templates from URL\n";
     u += "      --submit-to-origin        also submit solution back to self-select URL\n";
+    u += "                                for Epic Cash solo mining add \"coin\": \"EPIC\" to connect to the\n";
+    u += "                                node's stratum server (default: 127.0.0.1:3416)\n";
 #   endif
 
     u += "  -r, --retries=N               number of times to retry before switch to backup server (default: 5)\n";

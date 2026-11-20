@@ -366,54 +366,6 @@ public:
     }
 
 
-    // Same block style as NetworkState::printConnection() ('c') and printResults() ('s').
-    void printDifficulty()
-    {
-        const uint64_t value        = Nonce::bestHashValue();
-        const uint64_t sessionValue = Nonce::sessionBestHashValue();
-
-        if (!value && !sessionValue) {
-            LOG_NOTICE(YELLOW_BOLD_S "no hashes yet");
-
-            return;
-        }
-
-        Log::print(MAGENTA_BOLD_S " - DIFFICULTY");
-
-        // Difficulty of the best actual hash produced since the current job started
-        // and since the miner started, computed the same way as JobResult::actualDiff()
-        // for found shares.
-        if (value) {
-            Log::print(GREEN_BOLD(" * ") WHITE_BOLD("%-19s") CYAN_BOLD("%s") BLACK_BOLD(" (%llu)"),
-                       "best hash (job)",
-                       NetworkState::humanDiff(Job::toDiff(value)).c_str(),
-                       static_cast<unsigned long long>(Job::toDiff(value)));
-        }
-
-        if (sessionValue) {
-            Log::print(GREEN_BOLD(" * ") WHITE_BOLD("%-19s") CYAN_BOLD("%s") BLACK_BOLD(" (%llu)"),
-                       "best hash (session)",
-                       NetworkState::humanDiff(Job::toDiff(sessionValue)).c_str(),
-                       static_cast<unsigned long long>(Job::toDiff(sessionValue)));
-        }
-
-        // Session top-10: the ten most difficult (lowest raw value) hashes so far.
-        uint64_t records[kBestHashListSize];
-        size_t count = 0;
-        Nonce::readBestHashList(records, count);
-
-        if (count) {
-            Log::print(MAGENTA_BOLD_S " - TOP %zu", count);
-            Log::print(WHITE_BOLD_S "  # | DIFFICULTY |");
-
-            for (size_t i = 0; i < count; ++i) {
-                Log::print("%3zu | %10s |", i + 1,
-                           NetworkState::humanDiff(Job::toDiff(records[i])).c_str());
-            }
-        }
-    }
-
-
 #   ifdef XMRIG_ALGO_RANDOMX
     inline bool initRX() const { return Rx::init(job, controller->config()->rx(), controller->config()->cpu()); }
 #   endif

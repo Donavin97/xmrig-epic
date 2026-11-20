@@ -20,6 +20,7 @@
 #include <thread>
 #include <mutex>
 
+#include <random>
 
 #include "backend/cpu/Cpu.h"
 #include "backend/cpu/CpuWorker.h"
@@ -46,6 +47,7 @@
 
 #ifdef XMRIG_ALGO_RANDOMX
 #   include "crypto/randomx/randomx.h"
+#   include "3rdparty/uint256_t/uint256_t.h"
 #endif
 
 
@@ -58,6 +60,7 @@ namespace xmrig {
 
 static constexpr uint32_t kReserveCount = 32768;
 
+std::atomic<long> seed_count(0);
 
 #ifdef XMRIG_ALGO_CN_HEAVY
 static std::mutex cn_heavyZen3MemoryMutex;
@@ -264,6 +267,23 @@ void xmrig::CpuWorker<N>::start()
 
         size_t prev_job_size = 0;
         alignas(64) uint8_t prev_job[Job::kMaxBlobSize] = {};
+
+        // rx/epic: random nonce base, re-drawn for every job. A local PRNG
+        // instance per draw avoids the data race a shared global would have
+        // between worker threads.
+        uint64_t randomNumber = 0;
+        uint64_t epicNonceCycle = 0;
+        uint64_t epicPrevNonce = 0;
+        {
+            std::mt19937_64 rng(
+                static_cast<uint64_t>(Chrono::currentMSecsSinceEpoch()) ^
+                (static_cast<uint64_t>(id()) << 56) ^
+                (static_cast<uint64_t>(clock()) << 24) ^
+                (static_cast<uint64_t>(seed_count.fetch_add(1)) << 8));
+            randomNumber = rng();
+        }
+
+        uint8_t wowJob[282] = {};
 #       endif
 
         while (!Nonce::isOutdated(Nonce::CPU, m_job.sequence())) {
@@ -298,35 +318,141 @@ void xmrig::CpuWorker<N>::start()
 #           ifdef XMRIG_ALGO_RANDOMX
             uint8_t* miner_signature_ptr = m_job.blob() + m_job.nonceOffset() + m_job.nonceSize();
             if (job.algorithm().family() == Algorithm::RANDOM_X) {
-                if (first) {
-                    first = false;
+                
+                if (job.algorithm() == "rx/epic") {
+
+                    if (job.isEpicpause()) {
+                        Nonce::pause(true);
+                        break;
+                    }
+
+                    // Exact epic share target: the node computes a hash's
+                    // difficulty as uint256_max / hash (pow/types.rs
+                    // from_proof_hash), so a hash qualifies for `diff` when
+                    // hash <= uint256_max / diff. Split into big-endian 64-bit
+                    // limbs once per round so the per-hash check below needs no
+                    // 256-bit arithmetic.
+                    const uint256_t target = uint256_max / job.diff();
+                    const uint128_t targetHi = target.upper();
+                    const uint128_t targetLo = target.lower();
+                    const uint64_t targetLimbs[4] = {
+                        targetHi.upper(), targetHi.lower(), targetLo.upper(), targetLo.lower()
+                    };
+
+                    if (first) {
+                        first = false;
+
+                        // Epic blob: 274-byte pre_pow header plus 8-byte nonce.
+                        memcpy(wowJob, job.blob(), 282);
+
+                        // Prime the hashing pipeline with the first nonce.
+                        const uint64_t nonce = randomNumber;
+                        for (int j = 0; j < 8; ++j) {
+                            wowJob[274 + j] = static_cast<uint8_t>(nonce >> (8 * (7 - j)));
+                        }
+                        randomx_calculate_hash_first(m_vm, tempHash, wowJob, 282);
+                        epicPrevNonce = nonce;
+                        epicNonceCycle = 1;
+                    }
+
+                    for (size_t i = 0; i < N; ++i) {
+                        // The nonce must advance on every hash — otherwise the
+                        // miner keeps re-hashing the same blob over and over.
+                        const uint64_t nonce = randomNumber + epicNonceCycle++;
+
+                        // Epic blob: 274 bytes pre_pow + 8-byte big-endian
+                        // nonce as the last 8 bytes.
+                        for (int j = 0; j < 8; ++j) {
+                            wowJob[274 + j] = static_cast<uint8_t>(nonce >> (8 * (7 - j)));
+                        }
+
+                        // Pipelined hashing, same scheme as the rx/0 path:
+                        // outputs the hash of the previous nonce while
+                        // preparing the scratchpad for this one (fused
+                        // finalize+fill, one AES pass over the scratchpad
+                        // instead of two).
+                        randomx_calculate_hash_next(m_vm, tempHash, wowJob, 282, m_hash);
+                        const uint64_t hashed = epicPrevNonce;
+                        epicPrevNonce = nonce;
+
+                        // Big-endian 64-bit limbs of the hash.
+                        uint64_t h[4] = { 0, 0, 0, 0 };
+                        for (int b = 0; b < 32; ++b) {
+                            h[b >> 3] = (h[b >> 3] << 8) | m_hash[b];
+                        }
+
+                        // Track best hash for difficulty stats (h[0] is the
+                        // top 64 bits; lower is harder).
+                        HashTop::add(h[0]);
+                        Nonce::submitHashValue(h[0]);
+
+                        // Log high-difficulty hashes (> 10M / 10000k) in both
+                        // quiet and normal mode.
+                        if (h[0] > 0 && h[0] < 0xFFFFFFFFFFFFFFFFULL) {
+                            const uint64_t actualDiff = 0xFFFFFFFFFFFFFFFFULL / h[0];
+                            if (actualDiff > 10000000ULL) {
+                                xmrig::Log::print(xmrig::Log::USER,
+                                    "%s " MAGENTA_BOLD("high diff hash") " %s",
+                                    Tags::miner(),
+                                    xmrig::NetworkState::humanDiff(actualDiff).c_str());
+                            }
+                        }
+
+                        // Exact qualification, the same integer math the node's
+                        // from_proof_hash uses: hash <= uint256_max / diff.
+                        bool pass;
+                        if (h[0] != targetLimbs[0]) {
+                            pass = h[0] < targetLimbs[0];
+                        }
+                        else if (h[1] != targetLimbs[1]) {
+                            pass = h[1] < targetLimbs[1];
+                        }
+                        else if (h[2] != targetLimbs[2]) {
+                            pass = h[2] < targetLimbs[2];
+                        }
+                        else {
+                            pass = h[3] <= targetLimbs[3];
+                        }
+
+                        if (pass) {
+                            // Submit the nonce that was actually hashed: the
+                            // node recomputes hash(pre_pow || nonce) and
+                            // compares it to the submitted hash.
+                            JobResults::submit(job, hashed, m_hash);
+                        }
+                    }
+
+                } else {
+                    if (first) {
+                        first = false;
+                        if (job.hasMinerSignature()) {
+                            job.generateMinerSignature(m_job.blob(), job.size(), miner_signature_ptr);
+                        }
+                        randomx_calculate_hash_first(m_vm, tempHash, m_job.blob(), job.size());
+
+                        if (RandomX_CurrentConfig.Tweak_V2_COMMITMENT) {
+                            prev_job_size = job.size();
+                            memcpy(prev_job, m_job.blob(), prev_job_size);
+                        }
+                    }
+
+                    if (!nextRound()) {
+                        break;
+                    }
+
                     if (job.hasMinerSignature()) {
+                        memcpy(miner_signature_saved, miner_signature_ptr, sizeof(miner_signature_saved));
                         job.generateMinerSignature(m_job.blob(), job.size(), miner_signature_ptr);
                     }
-                    randomx_calculate_hash_first(m_vm, tempHash, m_job.blob(), job.size());
+
+                    randomx_calculate_hash_next(m_vm, tempHash, m_job.blob(), job.size(), m_hash);
 
                     if (RandomX_CurrentConfig.Tweak_V2_COMMITMENT) {
+                        memcpy(m_commitment, m_hash, RANDOMX_HASH_SIZE);
+                        randomx_calculate_commitment(prev_job, prev_job_size, m_hash, m_hash);
                         prev_job_size = job.size();
                         memcpy(prev_job, m_job.blob(), prev_job_size);
                     }
-                }
-
-                if (!nextRound()) {
-                    break;
-                }
-
-                if (job.hasMinerSignature()) {
-                    memcpy(miner_signature_saved, miner_signature_ptr, sizeof(miner_signature_saved));
-                    job.generateMinerSignature(m_job.blob(), job.size(), miner_signature_ptr);
-                }
-
-                randomx_calculate_hash_next(m_vm, tempHash, m_job.blob(), job.size(), m_hash);
-
-                if (RandomX_CurrentConfig.Tweak_V2_COMMITMENT) {
-                    memcpy(m_commitment, m_hash, RANDOMX_HASH_SIZE);
-                    randomx_calculate_commitment(prev_job, prev_job_size, m_hash, m_hash);
-                    prev_job_size = job.size();
-                    memcpy(prev_job, m_job.blob(), prev_job_size);
                 }
             }
             else
@@ -356,54 +482,62 @@ void xmrig::CpuWorker<N>::start()
             }
 
             if (valid) {
-                for (size_t i = 0; i < N; ++i) {
-                    const uint64_t value = *reinterpret_cast<uint64_t*>(m_hash + (i * 32) + 24);
 
-                    // Track the best achieved hash difficulties for the 'd' command.
-                    // Fast path is a single atomic compare; a lock is only taken
-                    // when this hash beats the current 10th best.
-                    HashTop::add(value);
+                // rx/epic hashing, tracking and submission all happen in the
+                // RandomX branch above. The generic check below compares the
+                // Monero-style byte-reversed low 64 bits against the target and
+                // must not run for epic.
+                if (job.algorithm() != "rx/epic") {
+                    for (size_t i = 0; i < N; ++i) {
+                        const uint64_t value = *reinterpret_cast<uint64_t*>(m_hash + (i * 32) + 24);
 
-                    // Tari/Epic use Nonce's best-hash trackers for their 'd'
-                    // output and the best_hash_diff API field.
-                    Nonce::submitHashValue(value);
+                        // Track the best achieved hash difficulties for the 'd' command.
+                        // Fast path is a single atomic compare; a lock is only taken
+                        // when this hash beats the current 10th best.
+                        HashTop::add(value);
 
-                    // Log high-difficulty hashes (> 10M / 10000k) in both quiet and normal mode.
-                    // actualDiff = 0xFFFFFFFFFFFFFFFF / value (same as JobResult::actualDiff())
-                    if (value > 0 && value < 0xFFFFFFFFFFFFFFFFULL) {
-                        const uint64_t actualDiff = 0xFFFFFFFFFFFFFFFFULL / value;
-                        if (actualDiff > 10000000ULL) {
-                            xmrig::Log::print(xmrig::Log::USER,
-                                "%s " MAGENTA_BOLD("high diff hash") " %s",
-                                Tags::miner(),
-                                xmrig::NetworkState::humanDiff(actualDiff).c_str());
-                        }
-                    }
+                        // Tari/Epic use Nonce's best-hash trackers for their 'd'
+                        // output and the best_hash_diff API field.
+                        Nonce::submitHashValue(value);
 
-#                   ifdef XMRIG_FEATURE_BENCHMARK
-                    if (m_benchSize) {
-                        if (current_job_nonces[i] < m_benchSize) {
-                            BenchState::add(value);
-                        }
-                    }
-                    else
-#                   endif
-
-                    if (value < job.target()) {
-                        uint8_t* extra_data = nullptr;
-
-                        if (job.algorithm().family() == Algorithm::RANDOM_X) {
-                            if (RandomX_CurrentConfig.Tweak_V2_COMMITMENT) {
-                                extra_data = m_commitment;
-                            }
-                            else if (job.hasMinerSignature()) {
-                                extra_data = miner_signature_saved;
+                        // Log high-difficulty hashes (> 10M / 10000k) in both quiet and normal mode.
+                        // actualDiff = 0xFFFFFFFFFFFFFFFF / value (same as JobResult::actualDiff())
+                        if (value > 0 && value < 0xFFFFFFFFFFFFFFFFULL) {
+                            const uint64_t actualDiff = 0xFFFFFFFFFFFFFFFFULL / value;
+                            if (actualDiff > 10000000ULL) {
+                                xmrig::Log::print(xmrig::Log::USER,
+                                    "%s " MAGENTA_BOLD("high diff hash") " %s",
+                                    Tags::miner(),
+                                    xmrig::NetworkState::humanDiff(actualDiff).c_str());
                             }
                         }
 
-                        JobResults::submit(job, current_job_nonces[i], m_hash + (i * 32), extra_data);
+#                       ifdef XMRIG_FEATURE_BENCHMARK
+                        if (m_benchSize) {
+                            if (current_job_nonces[i] < m_benchSize) {
+                                BenchState::add(value);
+                            }
+                        }
+                        else
+#                       endif
+
+                        if (value < job.target()) {
+                            uint8_t* extra_data = nullptr;
+
+                            if (job.algorithm().family() == Algorithm::RANDOM_X) {
+                                if (RandomX_CurrentConfig.Tweak_V2_COMMITMENT) {
+                                    extra_data = m_commitment;
+                                }
+                                else if (job.hasMinerSignature()) {
+                                    extra_data = miner_signature_saved;
+                                }
+                            }
+
+                            JobResults::submit(job, current_job_nonces[i], m_hash + (i * 32), extra_data);
+                        }
                     }
                 }
+
                 m_count += N;
             }
 

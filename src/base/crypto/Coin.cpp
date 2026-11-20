@@ -58,6 +58,7 @@ static const CoinInfo coinInfo[] = {
     { Algorithm::RX_PCOIN,        "PCoin",     "PCoin (PCN)", 0x00000000ULL, 10000000000, "pcoin" },
     { Algorithm::RX_0,            "SAL",      "Salvium",      120,    100000000,      BLUE_BG_BOLD(   WHITE_BOLD_S " salvium ") },
     { Algorithm::RX_0,            "XTM",      "Tari",         120,    1000000000000,  CYAN_BG_BOLD(   WHITE_BOLD_S " tari    ") },
+    { Algorithm::RX_EPIC,         "EPIC",     "Epic Cash",    120,    100000000,      BLUE_BG_BOLD(   WHITE_BOLD_S " epic    ") },
 };
 
 

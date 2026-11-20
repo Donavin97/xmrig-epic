@@ -39,6 +39,7 @@
 
 #ifdef XMRIG_FEATURE_HTTP
 #   include "base/net/stratum/DaemonClient.h"
+#   include "base/net/stratum/EpicDaemonClient.h"
 #   include "base/net/stratum/SelfSelectClient.h"
 #endif
 
@@ -66,6 +67,7 @@ const char *Pool::kCoin                   = "coin";
 const char *Pool::kDaemon                 = "daemon";
 const char *Pool::kDaemonPollInterval     = "daemon-poll-interval";
 const char *Pool::kDaemonJobTimeout       = "daemon-job-timeout";
+const char *Pool::kDaemonShareDiff        = "daemon-share-diff";
 const char *Pool::kDaemonZMQPort          = "daemon-zmq-port";
 const char *Pool::kEnabled                = "enabled";
 const char *Pool::kFingerprint            = "tls-fingerprint";
@@ -92,6 +94,7 @@ xmrig::Pool::Pool(const char *url) :
     m_flags(1 << FLAG_ENABLED),
     m_pollInterval(kDefaultPollInterval),
     m_jobTimeout(kDefaultJobTimeout),
+    m_shareDiff(kDefaultShareDiff),
     m_url(url)
 {
 }
@@ -106,6 +109,7 @@ xmrig::Pool::Pool(const char *host, uint16_t port, const char *user, const char 
     m_spendSecretKey(spendSecretKey),
     m_pollInterval(kDefaultPollInterval),
     m_jobTimeout(kDefaultJobTimeout),
+    m_shareDiff(kDefaultShareDiff),
     m_url(host, port, tls)
 {
     m_flags.set(FLAG_NICEHASH, nicehash || strstr(host, kNicehashHost));
@@ -117,6 +121,7 @@ xmrig::Pool::Pool(const rapidjson::Value &object) :
     m_flags(1 << FLAG_ENABLED),
     m_pollInterval(kDefaultPollInterval),
     m_jobTimeout(kDefaultJobTimeout),
+    m_shareDiff(kDefaultShareDiff),
     m_url(Json::getString(object, kUrl))
 {
     if (!m_url.isValid()) {
@@ -130,6 +135,13 @@ xmrig::Pool::Pool(const rapidjson::Value &object) :
     m_fingerprint    = Json::getString(object, kFingerprint);
     m_pollInterval   = Json::getUint64(object, kDaemonPollInterval, kDefaultPollInterval);
     m_jobTimeout     = Json::getUint64(object, kDaemonJobTimeout, kDefaultJobTimeout);
+    m_shareDiff      = Json::getUint64(object, kDaemonShareDiff, kDefaultShareDiff);
+
+    if (const char *shareDiffStr = Json::getString(object, kDaemonShareDiff)) {
+        if (strcmp(shareDiffStr, "block") == 0) {
+            m_shareDiff = kShareDiffBlock;
+        }
+    }
     m_algorithm      = Json::getString(object, kAlgo);
     m_coin           = Json::getString(object, kCoin);
     m_daemon         = Json::getString(object, kSelfSelect);
@@ -218,6 +230,7 @@ bool xmrig::Pool::isEqual(const Pool &other) const
             && m_user         == other.m_user
             && m_pollInterval == other.m_pollInterval
             && m_jobTimeout   == other.m_jobTimeout
+            && m_shareDiff    == other.m_shareDiff
             && m_daemon       == other.m_daemon
             && m_proxy        == other.m_proxy
             && m_rawTemplate  == other.m_rawTemplate
@@ -243,7 +256,12 @@ xmrig::IClient *xmrig::Pool::createClient(int id, IClientListener *listener) con
     }
 #   ifdef XMRIG_FEATURE_HTTP
     else if (m_mode == MODE_DAEMON) {
-        client = new DaemonClient(id, listener);
+        if (m_coin == Coin::EPIC) {
+            client = new EpicDaemonClient(id, Platform::userAgent(), listener);
+        }
+        else {
+            client = new DaemonClient(id, listener);
+        }
     }
     else if (m_mode == MODE_SELF_SELECT) {
         client = new SelfSelectClient(id, Platform::userAgent(), listener, m_submitToOrigin);
@@ -313,6 +331,9 @@ rapidjson::Value xmrig::Pool::toJSON(rapidjson::Document &doc) const
     if (m_mode == MODE_DAEMON) {
         obj.AddMember(StringRef(kDaemonPollInterval), m_pollInterval, allocator);
         obj.AddMember(StringRef(kDaemonJobTimeout), m_jobTimeout, allocator);
+        if (m_shareDiff > 0) {
+            obj.AddMember(StringRef(kDaemonShareDiff), m_shareDiff, allocator);
+        }
         obj.AddMember(StringRef(kDaemonZMQPort), m_zmqPort, allocator);
         obj.AddMember(StringRef(kTari), m_rawTemplate, allocator);
     }

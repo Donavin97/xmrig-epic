@@ -59,6 +59,7 @@ public:
         UserpassKey          = 'O',
         ProxyKey             = 'x',
         VerboseKey           = 1100,
+        QuietKey             = 1101,
         TlsKey               = 1013,
         FingerprintKey       = 1014,
         ProxyDonateKey       = 1017,
@@ -88,6 +89,7 @@ public:
         HugePagesJitKey      = 1057,
         RotationKey          = 1058,
         DaemonJobTimeoutKey  = 1059,
+        DaemonShareDiffKey   = 1060,
 
         // xmrig common
         CPUPriorityKey       = 1021,

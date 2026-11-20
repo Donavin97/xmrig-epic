@@ -44,6 +44,7 @@ public:
         PCOIN,
         SALVIUM,
         TARI,
+        EPIC,
         MAX
     };
 
