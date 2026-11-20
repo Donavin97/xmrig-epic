@@ -34,6 +34,9 @@
 
 
 #include "base/io/log/Log.h"
+#include "base/io/log/backends/ConsoleLog.h"
+#include "base/io/log/backends/QuietLog.h"
+#include "base/kernel/config/Title.h"
 #include "base/kernel/interfaces/ILogBackend.h"
 #include "base/tools/Chrono.h"
 #include "base/tools/Object.h"
@@ -78,6 +81,42 @@ public:
 
 
     inline void add(ILogBackend *backend) { m_backends.push_back(backend); }
+
+    inline void removeBackend(ILogBackend *backend)
+    {
+        auto it = std::find(m_backends.begin(), m_backends.end(), backend);
+        if (it != m_backends.end()) {
+            m_backends.erase(it);
+        }
+    }
+
+    inline bool hasBackend(ILogBackend *backend) const
+    {
+        return std::find(m_backends.begin(), m_backends.end(), backend) != m_backends.end();
+    }
+
+    inline bool hasConsoleLog() const
+    {
+        for (auto backend : m_backends) {
+            if (backend->isConsoleLog()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    inline void removeConsoleLog()
+    {
+        for (auto it = m_backends.begin(); it != m_backends.end(); ) {
+            if ((*it)->isConsoleLog()) {
+                delete *it;
+                it = m_backends.erase(it);
+            }
+            else {
+                ++it;
+            }
+        }
+    }
 
 
     void print(Log::Level level, const char *fmt, va_list args)
@@ -229,6 +268,7 @@ bool Log::m_colors          = true;
 LogPrivate *Log::d          = nullptr;
 uint32_t Log::m_verbose     = 0;
 std::atomic<bool> Log::m_quiet{ false };
+ILogBackend *Log::m_quietBackend = nullptr;
 
 
 } /* namespace xmrig */
@@ -241,6 +281,16 @@ void xmrig::Log::add(ILogBackend *backend)
 
     if (d) {
         d->add(backend);
+    }
+}
+
+
+void xmrig::Log::remove(ILogBackend *backend)
+{
+    assert(d != nullptr);
+
+    if (d) {
+        d->removeBackend(backend);
     }
 }
 
@@ -285,4 +335,40 @@ void xmrig::Log::print(Level level, const char *fmt, ...)
     d->print(level, fmt, args);
 
     va_end(args);
+}
+
+
+void xmrig::Log::setQuiet(bool quiet)
+{
+    const bool wasQuiet = m_quiet.load();
+    if (wasQuiet == quiet) {
+        return;
+    }
+
+    m_quiet.store(quiet);
+
+    if (!d) {
+        return;
+    }
+
+    if (quiet) {
+        // Entering quiet mode: remove ConsoleLog, add QuietLog
+        d->removeConsoleLog();
+
+        if (!m_quietBackend) {
+            m_quietBackend = new QuietLog();
+        }
+        d->add(m_quietBackend);
+    }
+    else {
+        // Exiting quiet mode: remove QuietLog, add ConsoleLog
+        if (m_quietBackend) {
+            d->removeBackend(m_quietBackend);
+        }
+
+        if (!d->hasConsoleLog()) {
+            // Add ConsoleLog with default Title (will be reinitialized with proper title on restart)
+            d->add(new ConsoleLog(Title()));
+        }
+    }
 }

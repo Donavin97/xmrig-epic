@@ -39,6 +39,8 @@ public:
     virtual ~ILogBackend()  = default;
 
     virtual void print(uint64_t timestamp, int level, const char *line, size_t offset, size_t size, bool colors) = 0;
+
+    virtual bool isConsoleLog() const { return false; }
 };
 
 

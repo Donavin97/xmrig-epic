@@ -54,6 +54,7 @@ public:
     constexpr static size_t kMaxBufferSize = 16384;
 
     static void add(ILogBackend *backend);
+    static void remove(ILogBackend *backend);
     static void destroy();
     static void init();
     static void print(const char *fmt, ...);
@@ -66,7 +67,7 @@ public:
     static inline uint32_t verbose()                    { return m_verbose; }
     static inline void setBackground(bool background)   { m_background = background; }
     static inline void setColors(bool colors)           { m_colors = colors; }
-    static inline void setQuiet(bool quiet)             { m_quiet.store(quiet); }
+    static void setQuiet(bool quiet);
     static inline void setVerbose(uint32_t verbose)     { m_verbose = verbose; }
 
 private:
@@ -75,6 +76,7 @@ private:
     static LogPrivate *d;
     static uint32_t m_verbose;
     static std::atomic<bool> m_quiet;
+    static ILogBackend *m_quietBackend;
 };
 
 
