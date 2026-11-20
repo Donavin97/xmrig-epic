@@ -21,12 +21,24 @@
 
 
 #include <cassert>
+#include <cstdio>
 #include <cstring>
+#include <unistd.h>
 
 
 xmrig::QuietLog::QuietLog(const char *fileName) :
-    m_writer(fileName)
+    m_tty(nullptr)
 {
+    // Open /dev/tty directly to bypass stdout/stderr (and systemd capture)
+    m_tty = fopen("/dev/tty", "w");
+}
+
+
+xmrig::QuietLog::~QuietLog()
+{
+    if (m_tty) {
+        fclose(m_tty);
+    }
 }
 
 
@@ -37,16 +49,17 @@ void xmrig::QuietLog::print(uint64_t, int level, const char *line, size_t, size_
         return;
     }
 
-    // Skip colored output (we want plain text in the log file)
+    // Skip colored output (we want plain text)
     if (colors) {
         return;
     }
 
-    if (!m_writer.isOpen()) {
+    if (!m_tty) {
         return;
     }
 
     assert(strlen(line) == size);
 
-    m_writer.write(line, size);
+    fwrite(line, 1, size, m_tty);
+    fflush(m_tty);
 }
