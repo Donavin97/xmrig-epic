@@ -43,5 +43,16 @@ void xmrig::SysLog::print(uint64_t, int level, const char *line, size_t offset, 
         return;
     }
 
-    syslog(level == -1 ? LOG_INFO : level, "%s", line + offset);
+    // XMRig's NONE (-1) and USER (8) are not syslog severities. Passing USER
+    // directly to syslog() encodes it as facility LOG_USER | severity 0
+    // (LOG_EMERG), so systemd-journald forwards the message to every terminal
+    // as an emergency wall broadcast. Map levels outside the syslog severity
+    // range (0..7) to severity 6 (LOG_INFO). Numeric constants are used because
+    // Log.h defines same-named function-like logging macros.
+    int priority = 6;
+    if (level >= 0 && level <= 7) {
+        priority = level;
+    }
+
+    syslog(priority, "%s", line + offset);
 }
