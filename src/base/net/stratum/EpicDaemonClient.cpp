@@ -428,7 +428,9 @@ bool xmrig::EpicDaemonClient::parseJob(const rapidjson::Value &params, int *code
         diff = difficulty.GetUint64();
     }
 
-    if (diff == 0) {
+    // Only require RandomX difficulty when actually mining RandomX.
+    // For other algorithms (progpow, cuckoo), the daemon may not provide it.
+    if (mining && diff == 0) {
         return jobError("No RandomX share difficulty received from daemon.");
     }
 
@@ -452,14 +454,14 @@ bool xmrig::EpicDaemonClient::parseJob(const rapidjson::Value &params, int *code
     // block-finding is unaffected. The special value kShareDiffBlock (set via
     // daemon-share-diff: "block") mines directly at the network block
     // difficulty, submitting only actual block solutions.
-    if (m_pool.shareDiff() == Pool::kShareDiffBlock) {
+    if (mining && m_pool.shareDiff() == Pool::kShareDiffBlock) {
         if (blockDiff == 0) {
             return jobError("No RandomX block difficulty received from daemon.");
         }
 
         diff = blockDiff;
     }
-    else if (m_pool.shareDiff() > diff) {
+    else if (mining && m_pool.shareDiff() > diff) {
         diff = m_pool.shareDiff();
     }
 
@@ -513,7 +515,7 @@ bool xmrig::EpicDaemonClient::parseJob(const rapidjson::Value &params, int *code
         }
     }
 
-    if (!haveSeed && mining) {
+    if (mining && !haveSeed) {
         return jobError("No RandomX seed epoch received from daemon.");
     }
 
