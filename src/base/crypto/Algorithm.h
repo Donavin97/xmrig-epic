@@ -82,6 +82,7 @@ public:
         RX_YADA         = 0x72151279,   // "rx/yada"          RandomYada (YadaCoin).
         RX_PCOIN        = 0x72151270,   // "rx/pcoin"         PCoin (PCN), fixed RandomX key.
         RX_EPIC         = 0x72151285,   // "rx/epic"          RandomEpic (Epic Cash).
+        RX_RXTM         = 0x72151286,   // "rx/rxtm"          Tari test (v1 params + v2 optimizations).
         AR2_CHUKWA      = 0x61130000,   // "argon2/chukwa"    Argon2id (Chukwa).
         AR2_CHUKWA_V2   = 0x61140000,   // "argon2/chukwav2"  Argon2id (Chukwa v2).
         AR2_WRKZ        = 0x61120000,   // "argon2/wrkz"      Argon2id (WRKZ)
@@ -151,6 +152,7 @@ public:
     static const char *kRX_SFX;
     static const char *kRX_YADA;
     static const char *kRX_PCOIN;
+    static const char *kRX_RXTM;
     static const char *kRX_EPIC;
 #   endif
 

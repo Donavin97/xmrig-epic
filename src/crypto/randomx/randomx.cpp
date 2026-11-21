@@ -508,6 +508,22 @@ RandomX_ConfigurationPcoin::RandomX_ConfigurationPcoin()
 RandomX_ConfigurationPcoin RandomX_PcoinConfig;
 alignas(64) RandomX_ConfigurationBase RandomX_CurrentConfig;
 
+RandomX_ConfigurationTariV1::RandomX_ConfigurationTariV1()
+{
+    ArgonSalt = "RandomX";
+
+    /* Use v1 ProgramSize (256) for higher hashrate, but enable 
+     * V2 JIT optimizations. COMMITMENT enabled for seed rotation. */
+    ProgramSize = 256;
+
+    Tweak_V2_CFROUND = 1;
+    Tweak_V2_AES = 1;
+    Tweak_V2_PREFETCH = 1;
+    Tweak_V2_COMMITMENT = 1;
+}
+
+RandomX_ConfigurationTariV1 RandomX_TariV1Config;
+
 static std::mutex vm_pool_mutex;
 
 extern "C" {
