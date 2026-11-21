@@ -70,6 +70,13 @@ RandomX_ConfigurationWownero::RandomX_ConfigurationWownero()
 	ScratchpadL2_Size = 131072;
 	ScratchpadL3_Size = 1048576;
 
+	// V2 performance tweaks (do not change hash output)
+	Tweak_V2_CFROUND = 1;
+	Tweak_V2_AES = 1;
+	Tweak_V2_PREFETCH = 1;
+	// COMMITMENT enabled for Monero-style seed rotation
+	Tweak_V2_COMMITMENT = 1;
+
 	RANDOMX_FREQ_IADD_RS = 25;
 	RANDOMX_FREQ_IROR_R = 10;
 	RANDOMX_FREQ_IROL_R = 0;
@@ -97,6 +104,13 @@ RandomX_ConfigurationArqma::RandomX_ConfigurationArqma()
 	ProgramCount = 4;
 	ScratchpadL2_Size = 131072;
 	ScratchpadL3_Size = 262144;
+
+	// V2 performance tweaks (do not change hash output)
+	Tweak_V2_CFROUND = 1;
+	Tweak_V2_AES = 1;
+	Tweak_V2_PREFETCH = 1;
+	// COMMITMENT enabled for Monero-style seed rotation
+	Tweak_V2_COMMITMENT = 1;
 }
 
 RandomX_ConfigurationGraft::RandomX_ConfigurationGraft()
@@ -106,11 +120,25 @@ RandomX_ConfigurationGraft::RandomX_ConfigurationGraft()
 	ProgramSize = 280;
 	RANDOMX_FREQ_IROR_R = 7;
 	RANDOMX_FREQ_IROL_R = 3;
+
+	// V2 performance tweaks (do not change hash output)
+	Tweak_V2_CFROUND = 1;
+	Tweak_V2_AES = 1;
+	Tweak_V2_PREFETCH = 1;
+	// COMMITMENT enabled for Monero-style seed rotation
+	Tweak_V2_COMMITMENT = 1;
 }
 
 RandomX_ConfigurationSafex::RandomX_ConfigurationSafex()
 {
 	ArgonSalt = "RandomSFX\x01";
+
+	// V2 performance tweaks (do not change hash output)
+	Tweak_V2_CFROUND = 1;
+	Tweak_V2_AES = 1;
+	Tweak_V2_PREFETCH = 1;
+	// COMMITMENT enabled for Monero-style seed rotation
+	Tweak_V2_COMMITMENT = 1;
 }
 
 RandomX_ConfigurationYada::RandomX_ConfigurationYada()
@@ -118,11 +146,25 @@ RandomX_ConfigurationYada::RandomX_ConfigurationYada()
 	ArgonSalt = "RandomXYadaCoin\x03";
 	SuperscalarLatency = 150;
 	ArgonIterations = 4;
+
+	// V2 performance tweaks (do not change hash output)
+	Tweak_V2_CFROUND = 1;
+	Tweak_V2_AES = 1;
+	Tweak_V2_PREFETCH = 1;
+	// COMMITMENT enabled for Monero-style seed rotation
+	Tweak_V2_COMMITMENT = 1;
 }
 
 RandomX_ConfigurationEpic::RandomX_ConfigurationEpic()
 {
 	ArgonSalt = "RandomX\x03";
+
+	// V2 performance tweaks (do not change hash output)
+	Tweak_V2_CFROUND = 1;
+	Tweak_V2_AES = 1;
+	Tweak_V2_PREFETCH = 1;
+	// COMMITMENT enabled for seed rotation
+	Tweak_V2_COMMITMENT = 1;
 
 	RANDOMX_FREQ_IADD_RS   =    25;
 	RANDOMX_FREQ_IADD_M    =     7;
