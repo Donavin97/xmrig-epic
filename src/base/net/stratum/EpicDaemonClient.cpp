@@ -424,6 +424,12 @@ bool xmrig::EpicDaemonClient::parseJob(const rapidjson::Value &params, int *code
             }
         }
     }
+    else if (difficulty.IsObject()) {
+        // Handle {"randomx": 12345} format
+        if (difficulty.HasMember("randomx") && difficulty["randomx"].IsUint64()) {
+            diff = difficulty["randomx"].GetUint64();
+        }
+    }
     else if (difficulty.IsUint64()) {
         diff = difficulty.GetUint64();
     }
@@ -446,6 +452,12 @@ bool xmrig::EpicDaemonClient::parseJob(const rapidjson::Value &params, int *code
                     break;
                 }
             }
+        }
+    }
+    else if (blockDifficulty.IsObject()) {
+        // Handle {"randomx": 12345} format
+        if (blockDifficulty.HasMember("randomx") && blockDifficulty["randomx"].IsUint64()) {
+            blockDiff = blockDifficulty["randomx"].GetUint64();
         }
     }
 
