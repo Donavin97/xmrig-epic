@@ -155,6 +155,7 @@ struct RandomX_ConfigurationGraft : public RandomX_ConfigurationBase { RandomX_C
 struct RandomX_ConfigurationSafex : public RandomX_ConfigurationBase { RandomX_ConfigurationSafex(); };
 struct RandomX_ConfigurationYada : public RandomX_ConfigurationBase { RandomX_ConfigurationYada(); };
 struct RandomX_ConfigurationEpic : public RandomX_ConfigurationBase { RandomX_ConfigurationEpic(); };
+struct RandomX_ConfigurationPcoin : public RandomX_ConfigurationBase { RandomX_ConfigurationPcoin(); };
 
 extern RandomX_ConfigurationMonero RandomX_MoneroConfig;
 extern RandomX_ConfigurationMoneroV2 RandomX_MoneroConfigV2;
@@ -163,6 +164,7 @@ extern RandomX_ConfigurationArqma RandomX_ArqmaConfig;
 extern RandomX_ConfigurationGraft RandomX_GraftConfig;
 extern RandomX_ConfigurationSafex RandomX_SafexConfig;
 extern RandomX_ConfigurationYada RandomX_YadaConfig;
+extern RandomX_ConfigurationPcoin RandomX_PcoinConfig;
 extern RandomX_ConfigurationEpic RandomX_EpicConfig;
 
 extern RandomX_ConfigurationBase RandomX_CurrentConfig;

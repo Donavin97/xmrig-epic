@@ -53,6 +53,9 @@ const RandomX_ConfigurationBase *xmrig::RxAlgo::base(Algorithm::Id algorithm)
     case Algorithm::RX_EPIC:
         return &RandomX_EpicConfig;
 
+    case Algorithm::RX_PCOIN:
+        return &RandomX_PcoinConfig;
+
     default:
         break;
     }

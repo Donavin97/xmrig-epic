@@ -450,6 +450,20 @@ RandomX_ConfigurationSafex RandomX_SafexConfig;
 RandomX_ConfigurationYada RandomX_YadaConfig;
 RandomX_ConfigurationEpic RandomX_EpicConfig;
 
+RandomX_ConfigurationPcoin::RandomX_ConfigurationPcoin()
+{
+    ArgonSalt = "PCoin/RandomX/v1";
+
+    /* Enable V2 performance tweaks (CFROUND, AES, PREFETCH) without
+     * changing hash output. COMMITMENT is disabled because PCoin uses
+     * a fixed seed with no rotation. */
+    Tweak_V2_CFROUND = 1;
+    Tweak_V2_AES = 1;
+    Tweak_V2_PREFETCH = 1;
+    Tweak_V2_COMMITMENT = 0;
+}
+
+RandomX_ConfigurationPcoin RandomX_PcoinConfig;
 alignas(64) RandomX_ConfigurationBase RandomX_CurrentConfig;
 
 static std::mutex vm_pool_mutex;
