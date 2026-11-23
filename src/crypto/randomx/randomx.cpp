@@ -62,6 +62,16 @@ RandomX_ConfigurationMoneroV2::RandomX_ConfigurationMoneroV2()
 	Tweak_V2_COMMITMENT = 1;
 }
 
+RandomX_ConfigurationTari::RandomX_ConfigurationTari()
+{
+	// Use Monero v1 parameters (ProgramSize=256) for network compatibility
+	// but enable v2 JIT optimizations for better hashing performance
+	Tweak_V2_CFROUND = 1;
+	Tweak_V2_AES = 1;
+	Tweak_V2_PREFETCH = 1;
+	Tweak_V2_COMMITMENT = 1;
+}
+
 RandomX_ConfigurationWownero::RandomX_ConfigurationWownero()
 {
 	ArgonSalt = "RandomWOW\x01";
@@ -443,6 +453,7 @@ typedef void(randomx::JitCompilerX86::* InstructionGeneratorX86_2)(const randomx
 
 RandomX_ConfigurationMonero RandomX_MoneroConfig;
 RandomX_ConfigurationMoneroV2 RandomX_MoneroConfigV2;
+RandomX_ConfigurationTari RandomX_TariConfig;
 RandomX_ConfigurationWownero RandomX_WowneroConfig;
 RandomX_ConfigurationArqma RandomX_ArqmaConfig;
 RandomX_ConfigurationGraft RandomX_GraftConfig;
