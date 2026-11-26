@@ -64,7 +64,9 @@ private:
     inline bool isEqualSeedAlgo(Algorithm other) const {
         return (m_algorithm == other) ||
               ((m_algorithm == Algorithm::RX_0)  && (other == Algorithm::RX_V2)) ||
-              ((m_algorithm == Algorithm::RX_V2) && (other == Algorithm::RX_0));
+              ((m_algorithm == Algorithm::RX_V2) && (other == Algorithm::RX_0)) ||
+              ((m_algorithm == Algorithm::RX_0)  && (other == Algorithm::RX_TARI)) ||
+              ((m_algorithm == Algorithm::RX_TARI) && (other == Algorithm::RX_0));
     }
 };
 

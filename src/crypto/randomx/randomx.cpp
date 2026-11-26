@@ -64,12 +64,21 @@ RandomX_ConfigurationMoneroV2::RandomX_ConfigurationMoneroV2()
 
 RandomX_ConfigurationTari::RandomX_ConfigurationTari()
 {
-	// Use Monero v1 parameters (ProgramSize=256) for network compatibility
-	// but enable v2 JIT optimizations for better hashing performance
-	Tweak_V2_CFROUND = 1;
-	Tweak_V2_AES = 1;
-	Tweak_V2_PREFETCH = 1;
-	Tweak_V2_COMMITMENT = 1;
+	// Tari's RandomXT proof of work is standard RandomX v1, identical to
+	// Monero's rx/0: ArgonSalt "RandomX\x03", ProgramSize 256, 2048 iterations
+	// and 8 programs. The only Tari-specific input is the VM key, which comes
+	// from the block hash at tari_rx_vm_key_height().
+	//
+	// The Tweak_V2_* flags are not compiler optimizations: CFROUND changes
+	// rounding semantics, AES changes the final scratchpad mix, and COMMITMENT
+	// replaces the submitted hash, so any of those produces hashes the Tari
+	// network rejects. PREFETCH only changes a prefetch address and is
+	// hash-neutral, but it is still a RandomX v2 code path and Tari must run
+	// the unmodified v1 algorithm. Keep all four disabled.
+	Tweak_V2_CFROUND = 0;
+	Tweak_V2_AES = 0;
+	Tweak_V2_PREFETCH = 0;
+	Tweak_V2_COMMITMENT = 0;
 }
 
 RandomX_ConfigurationWownero::RandomX_ConfigurationWownero()
